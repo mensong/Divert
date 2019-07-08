@@ -1,6 +1,6 @@
 /*
  * flowtrack.c
- * (C) 2018, all rights reserved,
+ * (C) 2019, all rights reserved,
  *
  * This file is part of WinDivert.
  *
@@ -227,7 +227,7 @@ int __cdecl main(int argc, char **argv)
             filter = argv[1];
             break;
         default:
-            fprintf(stderr, "usage: %s [filter]\n");
+            fprintf(stderr, "usage: %s [filter]\n", argv[0]);
             exit(EXIT_FAILURE);
     }
 
@@ -263,7 +263,7 @@ int __cdecl main(int argc, char **argv)
     // Main loop:
     while (TRUE)
     {
-        if (!WinDivertRecv(handle, NULL, 0, &addr, &packet_len))
+        if (!WinDivertRecv(handle, NULL, 0, NULL, &addr))
         {
             fprintf(stderr, "failed to read packet (%d)\n", GetLastError());
             continue;

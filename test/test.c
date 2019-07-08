@@ -1,6 +1,6 @@
 /*
  * test.c
- * (C) 2018, all rights reserved,
+ * (C) 2019, all rights reserved,
  *
  * This file is part of WinDivert.
  *
@@ -153,6 +153,8 @@ static const struct test tests[] =
     {"ip or ipv6",                             &pkt_echo_request, TRUE},
     {"inbound",                                &pkt_echo_request, FALSE},
     {"tcp",                                    &pkt_echo_request, FALSE},
+    {"tcp == TRUE",                            &pkt_echo_request, FALSE},
+    {"tcp == FALSE",                           &pkt_echo_request, TRUE},
     {"icmp.Type == 8",                         &pkt_echo_request, TRUE},
     {"icmp.Type == 9",                         &pkt_echo_request, FALSE},
     {"(tcp? ip.Checksum == 0: icmp)",          &pkt_echo_request, TRUE},
@@ -256,7 +258,59 @@ static const struct test tests[] =
     {"(((icmp)? (true): (false)) and "
      "(((tcp)? (false): (true)) and "
      "((ipv6)? (false): (true))))",            &pkt_echo_request, TRUE},
+    {"((((packet[31] > 0x54 or (packet[46] == 0x12 and "
+     "not packet[78] >= 0x32)) and (not packet[79] <= 0x33 and "
+     "not packet[81] > 0x35)) and (((not packet[62] <= 0x22 and "
+     "not packet[54] <= 0x1A) and (not packet[69] <= 0x29 or "
+     "packet[55] > 0x1B)) or ((not packet[78] != 0x32 and "
+     "packet[22] != 0x3C)? (not packet[11] <= 0x00? packet[7] >= 0x00: "
+     "packet[67] >= 0x27): (packet[1] < 0x00? not packet[49] == 0x15: "
+     "not packet[44] != 0x10))))? ((((not packet[11] > 0x00 and "
+     "not packet[62] <= 0x22) or (packet[7] < 0x00? packet[23] < 0xD2: "
+     "not packet[10] != 0x00)) and not packet[74] != 0x2E) or "
+     "packet[43] >= 0x00): ((((packet[3] == 0x54? packet[19] == 0x08: "
+     "packet[8] > 0x40) or not packet[80] > 0x34)? ((packet[9] >= 0x01? "
+     "packet[5] != 0x34: packet[61] > 0x21) or (packet[44] > 0x10 and "
+     "packet[63] < 0x23)): ((packet[80] <= 0x34 or not packet[78] < 0x32)? "
+     "(packet[19] != 0x08? packet[40] == 0x00: not packet[71] == 0x2B): "
+     "(not packet[39] < 0x00 or packet[38] != 0x0A))) or "
+     "(((not packet[81] > 0x35 and packet[22] <= 0x3C)? "
+     "(not packet[60] != 0x20? packet[28] < 0x8B: not packet[74] != 0x2E): "
+     "packet[8] <= 0x40) or ((packet[60] == 0x20? packet[57] <= 0x1D: "
+     "packet[24] >= 0x0D)? (packet[34] > 0x00 or not packet[53] < 0x19): "
+     "(packet[11] < 0x00 and packet[35] != 0x00)))))",
+                                               &pkt_echo_request, TRUE},
+    {"(((((packet[23] <= 0xD2 and not packet[1] >= 0x00)? "
+     "(packet[3] != 0x54 or packet[45] >= 0x11): (packet[4] > 0x12 and "
+     "packet[2] != 0x00)) or packet[24] > 0x0D) or (((not packet[57] > 0x1D? "
+     "packet[62] == 0x22: not packet[12] < 0x0A) or (packet[28] > 0x8B? "
+     "not packet[48] > 0x14: not packet[64] > 0x24)) or ((packet[80] >= 0x34? "
+     "not packet[3] != 0x54: not packet[26] <= 0x00) and "
+     "(packet[68] != 0x28 and packet[32] == 0x00))))? not packet[1] == 0x00: "
+     "((((not packet[36] > 0xF9 and not packet[70] == 0x2A) or "
+     "(not packet[3] <= 0x54? packet[1] > 0x00: not packet[14] != 0x00)) and "
+     "packet[57] <= 0x1D)? packet[38] == 0x0A: (((not packet[59] != 0x1F? "
+     "packet[46] < 0x12: not packet[81] < 0x35) and (packet[27] >= 0x01? "
+     "not packet[50] > 0x16: not packet[7] <= 0x00))? ((packet[76] >= 0x30 or "
+     "not packet[54] >= 0x1A) and packet[64] < 0x24): "
+     "((packet[58] <= 0x1E and packet[81] < 0x35)? (packet[20] < 0x08 or "
+     "packet[22] <= 0x3C): (not packet[70] >= 0x2A? packet[31] < 0x54: "
+     "not packet[69] <= 0x29)))))",            &pkt_echo_request, FALSE},
+    {"ip.HdrLength == 5 and ip.TOS == 0 and ip.Length == 84 and "
+     "ip.Id == 0x1234 and ip.FragOff == 0 and ip.MF == 0 and ip.DF == 1 and "
+     "ip.TTL == 64 and ip.Protocol == 1 and ip.SrcAddr == 0xFFFF0A000001 and "
+     "ip.DstAddr == 0xFFFF08080808 and icmp.Type == 8 and icmp.Code == 0 and "
+     "icmp.Body == 0x0D560001",                &pkt_echo_request, TRUE},
+    {"ip.HdrLength > 5 or ip.TOS > 0 or ip.Length != 84 or ip.Id < 0x1234 or "
+     "ip.FragOff != 0 or ip.MF < 0 or ip.DF != 1 or ip.TTL > 64 or "
+     "ip.Protocol != 1 or ip.SrcAddr < 0xFFFF0A000001 or "
+     "ip.DstAddr < 0xFFFF08080808 or icmp.Type != 8 or icmp.Code != 0 or "
+     "icmp.Body != 0x0D560001",                &pkt_echo_request, FALSE},
+    {"localAddr == 10.0.0.1 && remoteAddr == 8.8.8.8 && localPort == 8 && "
+     "remotePort == 0 && protocol == 1",       &pkt_echo_request, TRUE},
+    {"packet[0] == 0x45",                      &pkt_echo_request, TRUE},
     {"tcp",                                    &pkt_http_request, TRUE},
+    {"protocol == TCP",                        &pkt_http_request, TRUE},
     {"outbound and tcp and tcp.DstPort == 80", &pkt_http_request, TRUE},
     {"outbound and tcp and tcp.DstPort == 81", &pkt_http_request, FALSE},
     {"outbound and tcp and tcp.DstPort != 80", &pkt_http_request, FALSE},
@@ -352,10 +406,109 @@ static const struct test tests[] =
                                                &pkt_http_request, TRUE},
     {"(random32 < 0x22223333? packet32[72] == 0x58585858: udp)",
                                                &pkt_http_request, TRUE},
+    {"(((((not packet[340] != 0x58? not packet[173] < 0x74: "
+     "not packet[376] > 0x70) or not packet[87] != 0x6F) or "
+     "not packet[226] > 0x73) and (((not packet[289] <= 0x58 and "
+     "not packet[76] > 0x77) and (packet[231] < 0x67 and "
+     "not packet[24] < 0x53))? ((packet[365] > 0x58? not packet[91] <= 0x43: "
+     "not packet[310] <= 0x58) or (not packet[515] < 0x4D or "
+     "packet[518] >= 0x0A)): ((not packet[209] < 0x77? "
+     "not packet[237] > 0x58: not packet[286] == 0x58)? "
+     "(packet[354] == 0x58 or packet[502] > 0x31): not packet[2] > 0x02)))? "
+     "(((packet[520] <= 0x0A? (packet[484] == 0x63 and packet[83] >= 0x6C): "
+     "(packet[384] >= 0x69 or packet[245] >= 0x58)) and "
+     "(packet[106] > 0x70 or packet[45] != 0x2C))? (((packet[153] == 0x2F or "
+     "packet[139] >= 0x0D) and (packet[136] != 0x65? packet[100] == 0x6E: "
+     "not packet[128] == 0x3A))? ((not packet[288] != 0x58 or "
+     "not packet[309] == 0x58) and packet[350] <= 0x58): "
+     "not packet[129] >= 0x20): (not packet[493] != 0x30 and "
+     "((packet[465] != 0x33 or not packet[386] >= 0x67)? "
+     "(packet[470] >= 0x66 or not packet[259] >= 0x58): "
+     "packet[408] != 0x41))): ((((not packet[500] > 0x32 or "
+     "not packet[163] < 0x69) and not packet[122] == 0x6F) and "
+     "((packet[324] <= 0x58 and packet[481] > 0x53)? "
+     "(not packet[17] > 0xB8 and packet[102] != 0x20): (packet[303] > 0x58 or "
+     "packet[345] >= 0x58)))? (packet[191] < 0x6E and ((packet[429] <= 0x53? "
+     "not packet[239] >= 0x58: packet[258] < 0x58)? packet[382] >= 0x6F: "
+     "(packet[443] == 0x2D? not packet[67] < 0x0A: packet[168] <= 0x6F))): "
+     "(((packet[34] == 0x00 and not packet[77] != 0x2E)? "
+     "(packet[27] != 0xC2? not packet[477] <= 0x69: not packet[472] != 0x4D): "
+     "(not packet[157] >= 0x6C or not packet[308] <= 0x58)) or "
+     "((not packet[293] == 0x58? not packet[83] != 0x6C: packet[70] > 0x73)? "
+     "(not packet[260] < 0x58? packet[98] != 0x69: not packet[226] <= 0x73): "
+     "(packet[139] < 0x0D and not packet[171] == 0x78)))))",
+                                                &pkt_http_request, FALSE},
+    {"(((((packet[307] > 0x58 or packet[437] == 0x2E)? (packet[331] <= 0x58? "
+     "packet[39] != 0x00: not packet[503] > 0x34): not packet[248] >= 0x58)? "
+     "((not packet[266] >= 0x58? packet[510] != 0x3A: "
+     "not packet[343] == 0x58)? (not packet[183] == 0x70 and "
+     "not packet[333] <= 0x58): (packet[456] >= 0x22? packet[400] <= 0x65: "
+     "not packet[218] <= 0x71)): (packet[482] <= 0x69? "
+     "(packet[288] > 0x58 and packet[142] == 0x63): (packet[8] >= 0x40 or "
+     "not packet[211] == 0x62))) or ((packet[267] <= 0x58 and "
+     "(packet[35] != 0x73? packet[36] == 0x02: not packet[100] > 0x6E)) and "
+     "(not packet[170] > 0x2F and (not packet[289] != 0x58 and "
+     "not packet[344] < 0x58)))) or ((((not packet[468] > 0x0A and "
+     "not packet[372] >= 0x41) and (packet[513] < 0x20 or "
+     "packet[306] == 0x58)) or ((not packet[431] <= 0x65 and "
+     "not packet[144] < 0x65)? (packet[478] != 0x65? packet[37] <= 0xA4: "
+     "not packet[26] < 0xCC): (not packet[269] != 0x58 and "
+     "packet[149] != 0x74)))? (((packet[422] <= 0x65 and "
+     "not packet[176] > 0x2B) and (not packet[417] > 0x6E? "
+     "not packet[451] <= 0x74: packet[348] >= 0x58)) and "
+     "packet[284] != 0x58): (((packet[200] < 0x2E and packet[89] < 0x0D) or "
+     "(packet[469] == 0x49 and not packet[384] == 0x69))? "
+     "((not packet[105] >= 0x65 or packet[128] == 0x3A) or "
+     "packet[389] <= 0x67): not packet[271] >= 0x58)))",
+                                                &pkt_http_request, TRUE},
+    {"(packet[248] != 0x58? ((packet[470] > 0x66 and ((packet[96] < 0x63? "
+     "not packet[216] >= 0x2A: packet[261] == 0x58)? "
+     "(not packet[166] > 0x74? packet[502] >= 0x31: not packet[387] > 0x3A): "
+     "(not packet[387] > 0x3A? not packet[265] < 0x58: "
+     "packet[237] < 0x58))) and ((not packet[264] < 0x58 or "
+     "(not packet[113] >= 0x0D? not packet[423] == 0x3A: "
+     "packet[329] == 0x58)) and (not packet[515] < 0x4D? "
+     "(packet[172] >= 0x68? packet[286] != 0x58: not packet[121] != 0x43): "
+     "(not packet[160] < 0x70? not packet[322] != 0x58: "
+     "not packet[398] < 0x61)))): ((((packet[298] < 0x58 and "
+     "packet[268] > 0x58) and (not packet[447] <= 0x65 or "
+     "packet[149] >= 0x74)) or ((not packet[517] != 0x0D or "
+     "packet[179] < 0x6C)? (not packet[343] > 0x58 or "
+     "not packet[186] < 0x63): (not packet[255] > 0x58 or "
+     "not packet[487] == 0x20))) and (((not packet[149] < 0x74? "
+     "not packet[125] == 0x72: packet[496] < 0x41) and "
+     "(not packet[344] == 0x58? not packet[261] != 0x58: "
+     "not packet[317] >= 0x58))? (packet[100] == 0x6E? "
+     "(not packet[233] == 0x6E? packet[120] >= 0x2D: not packet[186] > 0x63): "
+     "(not packet[360] == 0x58 or packet[133] > 0x2D)): "
+     "not packet[477] == 0x69)))",              &pkt_http_request, FALSE},
+    {"ip.HdrLength == 5 and ip.TOS == 0 and ip.Length == 521 and "
+     "ip.Id == 0x482D and ip.FragOff == 0 and ip.MF == 0 and ip.DF == 1 and "
+     "ip.TTL == 64 and ip.Protocol == 6 and ip.SrcAddr == 0xFFFF0A0A0A0A and "
+     "ip.DstAddr == 0xFFFF5DB8D877 and tcp.SrcPort == 41754 and "
+     "tcp.DstPort == 80 and tcp.SeqNum == 1396231362 and "
+     "tcp.AckNum == 1446490965 and tcp.HdrLength == 8 and tcp.Fin == 0 and "
+     "tcp.Syn == 0 and tcp.Rst == 0 and tcp.Psh == 1 and tcp.Ack == 1 and "
+     "tcp.Urg == 0 and tcp.Window == 115 and tcp.UrgPtr == 0",
+                                               &pkt_http_request, TRUE},
+    {"ip.HdrLength > 5 or ip.TOS < 0 or ip.Length < 521 or ip.Id != 0x482D or "
+     "ip.FragOff != 0 or ip.MF != 0 or ip.DF < 1 or ip.TTL < 64 or "
+     "ip.Protocol > 6 or ip.SrcAddr != 0xFFFF0A0A0A0A or "
+     "ip.DstAddr < 0xFFFF5DB8D877 or tcp.SrcPort < 41754 or "
+     "tcp.DstPort < 80 or tcp.SeqNum != 1396231362 or "
+     "tcp.AckNum < 1446490965 or tcp.HdrLength < 8 or tcp.Fin != 0 or "
+     "tcp.Syn != 0 or tcp.Rst != 0 or tcp.Psh != 1 or tcp.Ack > 1 or "
+     "tcp.Urg != 0 or tcp.Window < 115 or tcp.UrgPtr < 0",
+                                               &pkt_http_request, FALSE},
+    {"localAddr == 10.10.10.10 && remoteAddr == 93.184.216.119 && "
+     "localPort == 41754 && remotePort == 80 && protocol == 6",
+                                               &pkt_http_request, TRUE},
     {"udp",                                    &pkt_dns_request, TRUE},
     {"udp && udp.SrcPort > 1 && ipv6",         &pkt_dns_request, FALSE},
     {"udp.DstPort == 53",                      &pkt_dns_request, TRUE},
     {"udp.DstPort > 100",                      &pkt_dns_request, FALSE},
+    {"zero = 0",                               &pkt_dns_request, TRUE},
+    {"zero = 1",                               &pkt_dns_request, FALSE},
     {"ip.DstAddr = 8.8.4.4",                   &pkt_dns_request, TRUE},
     {"ip.DstAddr = 8.8.8.8",                   &pkt_dns_request, FALSE},
     {"ip.DstAddr >= 8.8.0.0 &&"
@@ -366,6 +519,10 @@ static const struct test tests[] =
                                                &pkt_dns_request, FALSE},
     {"ip.DstAddr == ::ffff:8.8.4.4",           &pkt_dns_request, TRUE},
     {"ip.DstAddr == ::0:ffff:8.8.4.4",         &pkt_dns_request, TRUE},
+    {"remoteAddr == 8.8.4.4",                  &pkt_dns_request, TRUE},
+    {"remoteAddr == ::ffff:8.8.4.4",           &pkt_dns_request, TRUE},
+    {"protocol == 17",                         &pkt_dns_request, TRUE},
+    {"remotePort == 53",                       &pkt_dns_request, TRUE},
     {"(ipv6? true: false) or (udp? udp.DstPort != 53: false) or "
      "(not tcp and not udp? true: false)",     &pkt_dns_request, FALSE},
     {"ipv6 or (not tcp and udp.DstPort != 53)",&pkt_dns_request, FALSE},
@@ -376,17 +533,91 @@ static const struct test tests[] =
                                                &pkt_dns_request, TRUE},
     {"tcp.Payload32[0] > 0",                   &pkt_dns_request, FALSE},
     {"udp.Payload32[1] > 0",                   &pkt_dns_request, TRUE},
+    {"length == 57",                           &pkt_dns_request, TRUE},
+    {"(length > 57? udp: tcp)",                &pkt_dns_request, FALSE},
+    {"protocol == UDP",                        &pkt_dns_request, TRUE},
     {"random8 < 128",                          &pkt_dns_request, TRUE},
     {"(random8 < 128? random16 < 0x8000: random32 < 0x80000000)",
+                                               &pkt_dns_request, TRUE},
+    {"((((not packet[22] < 0x00 or (packet[14] > 0x00 and "
+     "packet[8] <= 0x49))? (not packet[3] > 0x39 and packet[22] <= 0x00): "
+     "not packet[1] <= 0x00) and (((packet[27] != 0xA7 or "
+     "packet[16] != 0x08) or (packet[3] > 0x39? packet[18] > 0x04: "
+     "not packet[32] != 0x00))? ((packet[32] == 0x00? not packet[51] > 0x6D: "
+     "packet[54] == 0x01)? (not packet[3] >= 0x39 and packet[7] != 0x00): "
+     "not packet[45] >= 0x70): ((not packet[5] != 0x90? packet[52] > 0x00: "
+     "packet[49] == 0x63) and (not packet[46] >= 0x6C? packet[15] <= 0x01: "
+     "not packet[27] >= 0xA7))))? ((((packet[22] > 0x00? "
+     "not packet[36] >= 0x00: packet[0] > 0x45)? (packet[31] != 0x00? "
+     "not packet[40] == 0x07: packet[31] >= 0x00): not packet[43] > 0x61) and "
+     "((not packet[16] == 0x08 and not packet[13] >= 0x00)? "
+     "(packet[24] <= 0x00 or packet[15] != 0x01): "
+     "(packet[56] < 0x01? packet[50] > 0x6F: not packet[56] == 0x01)))? "
+     "(packet[15] >= 0x01 or ((not packet[14] < 0x00? not packet[39] >= 0x00: "
+     "not packet[4] == 0x20)? (packet[12] >= 0x0A and "
+     "not packet[25] <= 0x25): packet[2] < 0x00)): "
+     "(((not packet[19] <= 0x04 or not packet[25] < 0x25)? "
+     "(packet[10] != 0x00 or packet[25] < 0x25): (not packet[46] > 0x6C? "
+     "not packet[23] <= 0x35: packet[56] < 0x01))? "
+     "((not packet[48] >= 0x03 or not packet[1] == 0x00)? "
+     "(packet[47] >= 0x65 and not packet[13] == 0x00): (packet[34] <= 0x00? "
+     "packet[22] <= 0x00: packet[43] >= 0x61)): (not packet[6] < 0x00 and "
+     "not packet[41] < 0x65))): (((not packet[21] != 0x45 and "
+     "(packet[26] < 0x22 or not packet[46] <= 0x6C)) and "
+     "((not packet[56] > 0x01? packet[3] == 0x39: not packet[42] >= 0x78)? "
+     "(not packet[4] > 0x20 or not packet[8] >= 0x49): "
+     "packet[34] > 0x00)) and ((packet[50] >= 0x6F and "
+     "(packet[1] != 0x00 and not packet[37] != 0x00)) and "
+     "((packet[28] == 0x17 or not packet[11] < 0x00) or (packet[40] == 0x07? "
+     "not packet[54] > 0x01: packet[18] < 0x04)))))",
+                                               &pkt_dns_request, FALSE},
+    {"((((packet[26] > 0x22 or packet[19] != 0x04)? ((not packet[17] > 0x08? "
+     "packet[20] != 0xE0: packet[52] < 0x00) and not packet[31] == 0x00): "
+     "((not packet[23] == 0x35 and packet[13] < 0x00) and "
+     "(not packet[44] > 0x6D and packet[22] <= 0x00)))? "
+     "(((not packet[27] >= 0xA7? packet[34] >= 0x00: "
+     "not packet[38] < 0x00) and (not packet[37] < 0x00? packet[40] > 0x07: "
+     "not packet[50] >= 0x6F)) and packet[36] != 0x00): "
+     "(((packet[16] == 0x08? not packet[50] > 0x6F: packet[51] != 0x6D)? "
+     "not packet[29] != 0x08: packet[16] <= 0x08)? "
+     "((not packet[32] != 0x00 or not packet[26] != 0x22) or "
+     "(not packet[27] != 0xA7 and not packet[21] == 0x45)): "
+     "((packet[30] >= 0x01 or packet[40] > 0x07) or "
+     "(not packet[46] < 0x6C and packet[56] <= 0x01))))? packet[31] <= 0x00: "
+     "(not packet[50] >= 0x6F and not packet[9] <= 0x11))",
+                                               &pkt_dns_request, TRUE},
+    {"packet32[13] <= 0xFFFFFFE",              &pkt_dns_request, TRUE},
+    {"packet32[53b] <= 0xFFFFFFE",             &pkt_dns_request, TRUE},
+    {"packet32[14] <= 0xFFFFFFE",              &pkt_dns_request, FALSE},
+    {"packet32[54b] <= 0xFFFFFFE",             &pkt_dns_request, FALSE},
+    {"ip.HdrLength == 5 and ip.TOS == 0 and ip.Length == 57 and "
+     "ip.Id == 0x2090 and ip.FragOff == 0 and ip.MF == 0 and ip.DF == 0 and "
+     "ip.TTL == 73 and ip.Protocol == 17 and ip.SrcAddr == 0xFFFF0A000001 and "
+     "ip.DstAddr == 0xFFFF08080404 and udp.SrcPort == 57413 and "
+     "udp.DstPort == 53 and udp.Length == 37", &pkt_dns_request, TRUE},
+    {"ip.HdrLength > 5 or ip.TOS > 0 or ip.Length < 57 or ip.Id > 0x2090 or "
+     "ip.FragOff != 0 or ip.MF < 0 or ip.DF < 0 or ip.TTL > 73 or "
+     "ip.Protocol < 17 or ip.SrcAddr < 0xFFFF0A000001 or "
+     "ip.DstAddr > 0xFFFF08080404 or udp.SrcPort > 57413 or "
+     "udp.DstPort != 53 or udp.Length < 37",   &pkt_dns_request, FALSE},
+    {"localAddr == 10.0.0.1 && remoteAddr == 8.8.4.4 && "
+     "localPort == 57413 && remotePort == 53 && protocol == 17",
                                                &pkt_dns_request, TRUE},
     {"ipv6",                                   &pkt_ipv6_tcp_syn, TRUE},
     {"ip",                                     &pkt_ipv6_tcp_syn, FALSE},
     {"tcp.Syn",                                &pkt_ipv6_tcp_syn, TRUE},
+    {"tcp.Syn == ::1 && tcp.Syn < ::ffff:aaaa:bbbb:cccc:dddd",
+                                               &pkt_ipv6_tcp_syn, TRUE},
     {"tcp.DstPort >= 23 && tcp.DstPort <= 23", &pkt_ipv6_tcp_syn, TRUE},
+    {"tcp.Syn and not tcp.Ack",                &pkt_ipv6_tcp_syn, TRUE},
     {"tcp.Syn == 1 && tcp.Ack == 0",           &pkt_ipv6_tcp_syn, TRUE},
     {"tcp.Rst or tcp.Fin",                     &pkt_ipv6_tcp_syn, FALSE},
     {"(tcp.Syn? !tcp.Rst && !tcp.Fin: true)",  &pkt_ipv6_tcp_syn, TRUE},
     {"(tcp.Rst? !tcp.Syn: (tcp.Fin? !tcp.Syn: tcp.Syn))",
+                                               &pkt_ipv6_tcp_syn, TRUE},
+    {"(tcp.Rst or tcp.Urg or tcp.Psh or tcp.Fin? false: tcp.Syn)",
+                                               &pkt_ipv6_tcp_syn, TRUE},
+    {"(tcp.Rst and tcp.Urg and tcp.Psh and tcp.Fin? false: tcp.Syn)",
                                                &pkt_ipv6_tcp_syn, TRUE},
     {"tcp.PayloadLength == 0",                 &pkt_ipv6_tcp_syn, TRUE},
     {"ip and !loopback and (outbound? tcp.DstPort == 80 or"
@@ -405,8 +636,83 @@ static const struct test tests[] =
     {"random8 < 128",                          &pkt_ipv6_tcp_syn, TRUE},
     {"(random8 < 128? random16 < 0x8000: random32 < 0x80000000)",
                                                &pkt_ipv6_tcp_syn, TRUE},
+    {"((((packet[56] != 0xC3? not packet[26] > 0x00: (packet[50] <= 0x00? "
+     "packet[62] < 0xFF: not packet[43] < 0x17))? not packet[2] > 0x00: "
+     "(packet[69] != 0xFF or (not packet[28] >= 0x00 and "
+     "not packet[79] > 0x07)))? (((packet[46] < 0xC8 or "
+     "packet[47] == 0xAA) or (packet[51] == 0x00 and packet[0] >= 0x60))? "
+     "packet[55] == 0xAA: not packet[79] >= 0x07): not packet[53] < 0x02)? "
+     "((not packet[65] > 0x02 and ((packet[36] >= 0x00 or "
+     "packet[24] < 0x00) and packet[3] != 0x00)) and (not packet[56] < 0xC3? "
+     "(not packet[0] <= 0x60 and (not packet[38] == 0x00 and "
+     "packet[78] > 0x03)): ((not packet[56] == 0xC3 and "
+     "not packet[9] < 0x34) and (packet[21] > 0xBB? not packet[67] < 0x0A: "
+     "not packet[75] >= 0x00)))): not packet[5] > 0x28)",
+                                                &pkt_ipv6_tcp_syn, FALSE},
+    {"(((packet[8] >= 0x12 and ((not packet[36] >= 0x00? "
+     "not packet[57] > 0x5E: packet[66] > 0x08) and "
+     "(not packet[53] > 0x02? not packet[2] == 0x00: packet[76] < 0x01))) or "
+     "(((not packet[26] <= 0x00? not packet[57] <= 0x5E: packet[7] >= 0x40)? "
+     "packet[60] > 0x02: not packet[11] <= 0x78) or ((packet[71] != 0x86? "
+     "packet[65] > 0x02: not packet[4] > 0x00)? (not packet[2] != 0x00? "
+     "not packet[57] < 0x5E: not packet[14] == 0x00): "
+     "(not packet[25] != 0x00 or packet[29] >= 0x00)))) or "
+     "(not packet[59] <= 0x00 or ((packet[76] < 0x01? not packet[7] < 0x40: "
+     "(packet[66] != 0x08 and not packet[30] > 0x00)) or "
+     "not packet[20] <= 0xAA)))",               &pkt_ipv6_tcp_syn, TRUE},
+    {"((packet[50] >= 0x00? packet[8] != 0x12: (((packet[33] > 0x00? "
+     "packet[15] >= 0x00: not packet[21] == 0xBB) or (packet[67] > 0x0A? "
+     "packet[9] == 0x34: packet[36] > 0x00)) and (packet[74] < 0x00? "
+     "(packet[60] != 0x02 and not packet[26] >= 0x00): "
+     "(not packet[29] == 0x00 and not packet[25] < 0x00)))) or "
+     "((((not packet[69] != 0xFF or packet[10] >= 0x56)? packet[8] >= 0x12: "
+     "(packet[78] < 0x03 and packet[9] >= 0x34))? ((packet[40] <= 0xC3? "
+     "not packet[15] > 0x00: not packet[71] != 0x86) and "
+     "not packet[45] != 0xD7): ((not packet[50] >= 0x00 or "
+     "not packet[1] == 0x00) or not packet[55] >= 0xAA))? "
+     "(not packet[32] == 0x00? (not packet[58] <= 0x00 and "
+     "not packet[8] > 0x12): (not packet[7] < 0x40 or "
+     "not packet[4] >= 0x00)): (((not packet[23] < 0xDD or "
+     "packet[68] >= 0xFF) and (packet[50] == 0x00 and "
+     "not packet[12] >= 0x00))? packet[48] >= 0x00: ((packet[10] != 0x56 and "
+     "not packet[4] == 0x00) and (packet[11] >= 0x78? not packet[18] > 0x00: "
+     "not packet[55] == 0xAA)))))",             &pkt_ipv6_tcp_syn, TRUE},
+    {"((packet[79] <= 0x07 and not packet[62] == 0xFF) and "
+     "((((not packet[20] > 0xAA? packet[20] <= 0xAA: packet[27] <= 0x00) and "
+     "(packet[62] > 0xFF? packet[12] == 0x00: not packet[19] == 0x00)) and "
+     "((not packet[68] == 0xFF and packet[75] > 0x00)? (packet[6] <= 0x06 or "
+     "packet[76] <= 0x01): not packet[50] == 0x00)) and (packet[57] >= 0x5E? "
+     "((not packet[75] >= 0x00? packet[75] != 0x00: not packet[63] != 0xC4)? "
+     "not packet[1] < 0x00: (packet[30] > 0x00? packet[16] == 0x00: "
+     "packet[36] == 0x00)): ((packet[66] < 0x08? not packet[0] < 0x60: "
+     "packet[72] != 0x00)? (packet[25] > 0x00 or not packet[13] < 0x01): "
+     "(packet[47] <= 0xAA and not packet[15] != 0x00)))))",
+                                                &pkt_ipv6_tcp_syn, FALSE},
+    {"packet32[-4b] < 0xFFFFFFFE",              &pkt_ipv6_tcp_syn, TRUE},
+    {"ipv6.TrafficClass == 0x00000000 and ipv6.FlowLabel == 0x0000 and "
+     "ipv6.Length == 40 and ipv6.NextHdr == 6 and ipv6.HopLimit == 64 and "
+     "ipv6.SrcAddr == 1234:5678:1:0:0:0:aabb:ccdd and "
+     "ipv6.DstAddr == 0:0:0:0:0:0:0:1 and tcp.SrcPort == 50046 and "
+     "tcp.DstPort == 23 and tcp.SeqNum == 3789015210 and tcp.AckNum == 0 and "
+     "tcp.HdrLength == 10 and tcp.Fin == 0 and tcp.Syn == 1 and "
+     "tcp.Rst == 0 and tcp.Psh == 0 and tcp.Ack == 0 and tcp.Urg == 0 and "
+     "tcp.Window == 43690 and tcp.UrgPtr == 0",&pkt_ipv6_tcp_syn, TRUE},
+    {"ipv6.TrafficClass > 0x00000000 or ipv6.FlowLabel < 0x0000 or "
+     "ipv6.Length < 40 or ipv6.NextHdr != 6 or ipv6.HopLimit > 64 or "
+     "ipv6.SrcAddr != 1234:5678:1:0:0:0:aabb:ccdd or "
+     "ipv6.DstAddr < 0:0:0:0:0:0:0:1 or tcp.SrcPort < 50046 or "
+     "tcp.DstPort > 23 or tcp.SeqNum < 3789015210 or tcp.AckNum < 0 or "
+     "tcp.HdrLength != 10 or tcp.Fin > 0 or tcp.Syn > 1 or tcp.Rst > 0 or "
+     "tcp.Psh > 0 or tcp.Ack != 0 or tcp.Urg != 0 or tcp.Window != 43690 or "
+     "tcp.UrgPtr != 0",                        &pkt_ipv6_tcp_syn, FALSE},
+    {"localAddr == 1234:5678:1::aabb:ccdd && remoteAddr == ::1 && "
+     "localPort == 50046 && remotePort == 23 && protocol == 6",
+                                               &pkt_ipv6_tcp_syn, TRUE},
+    {"packet[0] == 0x60",                      &pkt_ipv6_tcp_syn, TRUE},
     {"icmpv6",                                 &pkt_ipv6_echo_reply, TRUE},
     {"icmp",                                   &pkt_ipv6_echo_reply, FALSE},
+    {"protocol == ICMPV6",                     &pkt_ipv6_echo_reply, TRUE},
+    {"protocol == ICMP",                       &pkt_ipv6_echo_reply, FALSE},
     {"icmp or icmpv6",                         &pkt_ipv6_echo_reply, TRUE},
     {"not icmp",                               &pkt_ipv6_echo_reply, TRUE},
     {"icmpv6.Type == 129",                     &pkt_ipv6_echo_reply, TRUE},
@@ -420,8 +726,53 @@ static const struct test tests[] =
     {"random8 < 128",                          &pkt_ipv6_echo_reply, TRUE},
     {"(random8 < 128? random16 < 0x8000: random32 < 0x80000000)",
                                                &pkt_ipv6_echo_reply, TRUE},
+    {"(((((not packet[68] != 0x44? packet[58] >= 0x00: "
+     "not packet[39] >= 0x01) and not packet[101] != 0x55) and "
+     "((not packet[70] >= 0x66? not packet[68] > 0x44: "
+     "not packet[77] > 0xDD) and (not packet[72] <= 0x88 or "
+     "packet[5] >= 0x40)))? (((not packet[88] <= 0x88 and "
+     "packet[13] > 0x00) and (packet[52] >= 0x00 and "
+     "not packet[96] == 0x00)) or packet[32] < 0x00): "
+     "(((packet[57] <= 0x75? not packet[27] == 0x00: packet[0] >= 0x60) or "
+     "(packet[90] == 0xAA or packet[62] > 0x00))? "
+     "((not packet[39] <= 0x01 and packet[48] != 0xA4) or "
+     "packet[86] <= 0x66): not packet[61] >= 0x00)) and "
+     "((packet[64] >= 0x00? (not packet[50] != 0x69 or "
+     "(not packet[92] != 0xCC? not packet[9] < 0x00: packet[93] >= 0xDD)): "
+     "((packet[58] <= 0x00 and not packet[103] != 0x77) or "
+     "(not packet[22] < 0x00? not packet[93] <= 0xDD: "
+     "not packet[55] < 0x00))) or (packet[87] <= 0x77 and "
+     "((packet[70] <= 0x66 and not packet[59] <= 0x00) and "
+     "(not packet[8] != 0x00 or packet[82] == 0x22)))))",
+                                               &pkt_ipv6_echo_reply, FALSE},
+    {"((((packet[14] == 0x00? (packet[102] > 0x66 or packet[16] != 0x00): "
+     "(packet[81] >= 0x11 or not packet[35] <= 0x00))? "
+     "((packet[88] < 0x88? packet[8] <= 0x00: packet[18] > 0x00) or "
+     "(not packet[82] <= 0x22? not packet[13] == 0x00: "
+     "not packet[37] == 0x00)): (packet[38] < 0x00 and "
+     "not packet[83] < 0x33))? packet[95] >= 0xFF: "
+     "(((not packet[96] <= 0x00? packet[84] != 0x44: "
+     "not packet[34] <= 0x00) or not packet[47] <= 0x03) or "
+     "((packet[78] == 0xEE? packet[101] >= 0x55: not packet[25] >= 0x00) or "
+     "packet[9] <= 0x00))) or (packet[59] == 0x00 and ((packet[72] < 0x88 and "
+     "(packet[52] == 0x00 or not packet[54] >= 0x00)) or "
+     "(packet[13] >= 0x00 or (not packet[93] == 0xDD and "
+     "not packet[99] < 0x33)))))",             &pkt_ipv6_echo_reply, TRUE},
+    {"ipv6.TrafficClass == 0x00000000 and ipv6.FlowLabel == 0x0000 and "
+     "ipv6.Length == 64 and ipv6.NextHdr == 58 and ipv6.HopLimit == 31 and "
+     "ipv6.SrcAddr == 0:0:0:0:0:0:0:1 and ipv6.DstAddr == 0:0:0:0:0:0:0:1 and "
+     "icmpv6.Type == 129 and icmpv6.Code == 0 and icmpv6.Body == 0x10720003",
+                                               &pkt_ipv6_echo_reply, TRUE},
+    {"ipv6.TrafficClass != 0x00000000 or ipv6.FlowLabel != 0x0000 or "
+     "ipv6.Length < 64 or ipv6.NextHdr > 58 or ipv6.HopLimit != 31 or "
+     "ipv6.SrcAddr != 0:0:0:0:0:0:0:1 or ipv6.DstAddr > 0:0:0:0:0:0:0:1 or "
+     "icmpv6.Type > 129 or icmpv6.Code > 0 or icmpv6.Body != 0x10720003",
+                                               &pkt_ipv6_echo_reply, FALSE},
+    {"localAddr == ::1 && remoteAddr == ::1 && localPort == 129 && "
+     "remotePort == 0 && protocol == 58",      &pkt_ipv6_echo_reply, TRUE},
     {"true",                                   &pkt_ipv6_exthdrs_udp, TRUE},
     {"false",                                  &pkt_ipv6_exthdrs_udp, FALSE},
+    {"protocol == 0",                          &pkt_ipv6_exthdrs_udp, FALSE},
     {"udp",                                    &pkt_ipv6_exthdrs_udp, TRUE},
     {"tcp",                                    &pkt_ipv6_exthdrs_udp, FALSE},
     {"ipv6.SrcAddr == ::",                     &pkt_ipv6_exthdrs_udp, FALSE},
@@ -433,10 +784,14 @@ static const struct test tests[] =
     {"ipv6.SrcAddr != abcd::1",                &pkt_ipv6_exthdrs_udp, TRUE},
     {"ipv6.SrcAddr >= abcd::1",                &pkt_ipv6_exthdrs_udp, FALSE},
     {"ipv6.SrcAddr > abcd::1",                 &pkt_ipv6_exthdrs_udp, FALSE},
+    {"timestamp > -1",                         &pkt_ipv6_exthdrs_udp, TRUE},
     {"udp.SrcPort == 4660 and udp.DstPort == 43690",
                                                &pkt_ipv6_exthdrs_udp, TRUE},
     {"udp.SrcPort == 4660 and udp.DstPort == 12345",
                                                &pkt_ipv6_exthdrs_udp, FALSE},
+    {"localAddr == ::1",                       &pkt_ipv6_exthdrs_udp, TRUE},
+    {"localPort == 4660 and remotePort == 43690",
+                                               &pkt_ipv6_exthdrs_udp, TRUE},
     {"(outbound and tcp? tcp.DstPort == 0xABAB: false) or "
      "(outbound and udp? udp.DstPort == 0xAAAA: false) or "
      "(inbound and tcp? tcp.SrcPort == 0xABAB: false) or "
@@ -447,11 +802,59 @@ static const struct test tests[] =
     {"(tcp or udp) and (ip or ipv6) and (icmp or !icmpv6) and "
      "(tcp.Payload16[-1] == 0x1234 or udp.Payload16[-1] == 0x2101)",
                                                &pkt_ipv6_exthdrs_udp, TRUE},
+    {"udp.PayloadLength == 13",                &pkt_ipv6_exthdrs_udp, TRUE},
+    {"(udp.Length == 13? false: udp.Length == 21)",
+                                               &pkt_ipv6_exthdrs_udp, TRUE},
     {"(tcp or icmp or icmpv6 or ip or !udp or ipv6? udp.PayloadLength > 0: "
         "udp.DstPort == 39482)",               &pkt_ipv6_exthdrs_udp, TRUE},
     {"random8 < 128",                          &pkt_ipv6_exthdrs_udp, TRUE},
     {"(random8 < 128? random16 < 0x8000: random32 < 0x80000000)",
                                                &pkt_ipv6_exthdrs_udp, TRUE},
+    {"timestamp != -0x8000000000000000",       &pkt_ipv6_exthdrs_udp, TRUE},
+    {"timestamp !=  0x7fffffffffffffff",       &pkt_ipv6_exthdrs_udp, TRUE},
+    {"timestamp == -0x1deadbeef1234567",       &pkt_ipv6_exthdrs_udp, FALSE},
+    {"((packet[2] <= 0x00 or (((packet[29] < 0x00 or "
+     "not packet[35] != 0x00) and packet[32] != 0x00) and "
+     "((not packet[31] != 0x00 and packet[52] > 0x00) and "
+     "(packet[28] < 0x00? not packet[28] <= 0x00: packet[73] == 0x65))))? "
+     "((((packet[9] <= 0x00? not packet[28] == 0x00: "
+     "not packet[22] >= 0x00) and (not packet[20] != 0x00 and "
+     "not packet[22] >= 0x00)) and ((packet[42] > 0x00 and "
+     "not packet[12] < 0x00) or packet[66] == 0xAA)) or "
+     "(not packet[23] >= 0x01 and (packet[79] > 0x6F and "
+     "(not packet[18] > 0x00 or not packet[82] <= 0x64)))): "
+     "packet[62] <= 0x00)",
+                                               &pkt_ipv6_exthdrs_udp, FALSE},
+    {"((packet[56] > 0x11? (((not packet[0] > 0x60? not packet[22] < 0x00: "
+     "not packet[15] > 0x00)? (not packet[5] >= 0x2D and packet[18] != 0x00): "
+     "packet[45] == 0x00) or ((packet[47] >= 0x00 or not packet[32] >= 0x00)? "
+     "(packet[29] >= 0x00 or not packet[20] == 0x00): (packet[32] > 0x00 and "
+     "packet[46] > 0x00))): not packet[76] != 0x6F) or "
+     "((not packet[32] > 0x00 or (packet[13] == 0x00 or (packet[4] > 0x00 or "
+     "packet[21] < 0x00))) or (((packet[55] != 0x00? packet[67] != 0xAA: "
+     "not packet[66] >= 0xAA)? (packet[8] > 0x00? not packet[28] > 0x00: "
+     "packet[28] <= 0x00): not packet[78] != 0x57)? ((packet[79] == 0x6F or "
+     "packet[25] == 0x00) or (packet[68] == 0x00? not packet[50] < 0x00: "
+     "not packet[68] < 0x00)): ((not packet[78] > 0x57 and "
+     "not packet[8] == 0x00) or packet[32] <= 0x00))))",
+                                               &pkt_ipv6_exthdrs_udp, TRUE},
+    {"ipv6.TrafficClass == 0x00000000 and ipv6.FlowLabel == 0x0000 and "
+     "ipv6.Length == 45 and ipv6.NextHdr == 0 and ipv6.HopLimit == 100 and "
+     "ipv6.SrcAddr == 0:0:0:0:0:0:0:1 and ipv6.DstAddr == 0:0:0:0:0:0:0:1 and "
+     "udp.SrcPort == 4660 and udp.DstPort == 43690 and udp.Length == 21",
+                                               &pkt_ipv6_exthdrs_udp, TRUE},
+    {"(ipv6.TrafficClass == 0x00000000 and ipv6.FlowLabel == 0x0000 and "
+     "ipv6.Length == 45 and ipv6.NextHdr == 0 and ipv6.HopLimit == 101? false: "
+     "(ipv6.SrcAddr == 0:0:0:0:0:0:0:1 and ipv6.DstAddr == 0:0:0:0:0:0:0:1 and "
+     "udp.SrcPort == 4660 and udp.DstPort == 43691? false: udp.Length == 22))",
+                                               &pkt_ipv6_exthdrs_udp, FALSE},
+    {"ipv6.TrafficClass != 0x00000000 or ipv6.FlowLabel > 0x0000 or "
+     "ipv6.Length < 45 or ipv6.NextHdr != 0 or ipv6.HopLimit < 100 or "
+     "ipv6.SrcAddr > 0:0:0:0:0:0:0:1 or ipv6.DstAddr < 0:0:0:0:0:0:0:1 or "
+     "udp.SrcPort > 4660 or udp.DstPort < 43690 or udp.Length > 21",
+                                               &pkt_ipv6_exthdrs_udp, FALSE},
+    {"localAddr == ::1 and remoteAddr == 1 and localPort == 4660 and "
+     "remotePort == 43690 and protocol == 17", &pkt_ipv6_exthdrs_udp, TRUE},
 };
 
 /*
@@ -461,6 +864,7 @@ int main(void)
 {
     HANDLE upper_handle, lower_handle;
     HANDLE console, monitor;
+    BOOL passed[sizeof(tests) / sizeof(struct test)], first;
     DWORD result;
     LARGE_INTEGER freq;
     UINT64 diff;
@@ -469,9 +873,9 @@ int main(void)
     // Open handles to:
     // (1) stop normal traffic from interacting with the tests; and
     // (2) stop test packets escaping to the Internet or TCP/IP stack.
-    upper_handle = WinDivertOpen("true", WINDIVERT_LAYER_NETWORK, -999,
+    upper_handle = WinDivertOpen("true", WINDIVERT_LAYER_NETWORK, 9999,
         WINDIVERT_FLAG_DROP);
-    lower_handle = WinDivertOpen("true", WINDIVERT_LAYER_NETWORK, 999,
+    lower_handle = WinDivertOpen("true", WINDIVERT_LAYER_NETWORK, -9999,
         WINDIVERT_FLAG_DROP);
     if (upper_handle == INVALID_HANDLE_VALUE ||
         lower_handle == INVALID_HANDLE_VALUE)
@@ -508,11 +912,11 @@ int main(void)
         BOOL match = tests[i].match;
 
         // Run the test:
-        BOOL res = run_test(upper_handle, filter, packet, packet_len, match,
+        passed[i] = run_test(upper_handle, filter, packet, packet_len, match,
             &diff);
         diff = 1000000 * diff / freq.QuadPart;
-        printf("%.3u ", i);
-        if (res)
+        printf("%.3u ", (unsigned)i);
+        if (passed[i])
         {
             SetConsoleTextAttribute(console, FOREGROUND_GREEN);
             printf("PASSED");
@@ -559,6 +963,43 @@ int main(void)
     printf("\npassed = %.2f%%\n",
         ((double)passed_tests / (double)num_tests) * 100.0);
 
+    first = TRUE;
+    for (i = 0; i < num_tests; i++)
+    {
+        const char *filter = tests[i].filter;
+        char *name = tests[i].packet->name;
+ 
+        if (passed[i])
+        {
+            continue;
+        }
+        if (first)
+        {
+            SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_BLUE);
+            printf("\nFAILED TESTS");
+            SetConsoleTextAttribute(console, FOREGROUND_RED |
+                FOREGROUND_GREEN | FOREGROUND_BLUE);
+            printf("\n------------\n\n");
+            first = FALSE;
+        }
+        printf("%.3u ", (unsigned)i);
+        SetConsoleTextAttribute(console, FOREGROUND_RED);
+        printf("FAILED");
+        SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_GREEN |
+            FOREGROUND_BLUE);
+        printf(" p=[");
+        SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_GREEN);
+        printf("%s", name);
+        SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_GREEN |
+            FOREGROUND_BLUE);
+        printf("] f=[");
+        SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_GREEN);
+        printf("%s", filter);
+        SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_GREEN |
+            FOREGROUND_BLUE);
+        printf("]\n");
+    }
+
     return 0;
 }
 
@@ -581,6 +1022,7 @@ static BOOL run_test(HANDLE inject_handle, const char *filter,
     HANDLE event[2] = {NULL, NULL};
     BOOL random, result, ipv4;
     LARGE_INTEGER end;
+    UINT64 val;
 
     *diff = 0;
 
@@ -594,18 +1036,45 @@ static BOOL run_test(HANDLE inject_handle, const char *filter,
     }
 
     // (1) Open WinDivert handles:
-    handle[0] = WinDivertOpen(object, WINDIVERT_LAYER_NETWORK, 777, 0);
+    handle[0] = WinDivertOpen(object, WINDIVERT_LAYER_NETWORK, 8888, 0);
     if (handle[0] == INVALID_HANDLE_VALUE)
     {
         fprintf(stderr, "error: failed to open WinDivert handle for filter "
             "\"%s\" (err = %d)\n", filter, GetLastError());
         goto failed;
     }
-    handle[1] = WinDivertOpen("true", WINDIVERT_LAYER_NETWORK, 888, 0);
+    handle[1] = WinDivertOpen("true", WINDIVERT_LAYER_NETWORK, 7777, 0);
     if (handle[1] == INVALID_HANDLE_VALUE)
     {
         fprintf(stderr, "error: failed to open WinDivert handle "
             "(err = %d)\n", GetLastError());
+        goto failed;
+    }
+    if (!WinDivertSetParam(handle[0], WINDIVERT_PARAM_QUEUE_LENGTH,
+            WINDIVERT_PARAM_QUEUE_LENGTH_MAX) ||
+        !WinDivertGetParam(handle[0], WINDIVERT_PARAM_QUEUE_LENGTH, &val) ||
+        val != WINDIVERT_PARAM_QUEUE_LENGTH_MAX)
+    {
+        fprintf(stderr, "error: failed to set WINDIVERT_PARAM_QUEUE_LENGTH "
+            "parameter (err = %d)\n", GetLastError());
+        goto failed;
+    }
+    if (!WinDivertSetParam(handle[0], WINDIVERT_PARAM_QUEUE_SIZE,
+            WINDIVERT_PARAM_QUEUE_SIZE_MAX) ||
+        !WinDivertGetParam(handle[0], WINDIVERT_PARAM_QUEUE_SIZE, &val) ||
+        val != WINDIVERT_PARAM_QUEUE_SIZE_MAX)
+    {
+        fprintf(stderr, "error: failed to set WINDIVERT_PARAM_QUEUE_SIZE "
+            "parameter (err = %d)\n", GetLastError());
+        goto failed;
+    }
+    if (!WinDivertSetParam(handle[0], WINDIVERT_PARAM_QUEUE_TIME,
+            WINDIVERT_PARAM_QUEUE_TIME_MAX) ||
+        !WinDivertGetParam(handle[0], WINDIVERT_PARAM_QUEUE_TIME, &val) ||
+        val != WINDIVERT_PARAM_QUEUE_TIME_MAX)
+    {
+        fprintf(stderr, "error: failed to set WINDIVERT_PARAM_QUEUE_TIME "
+            "parameter (err = %d)\n", GetLastError());
         goto failed;
     }
 
@@ -636,12 +1105,12 @@ static BOOL run_test(HANDLE inject_handle, const char *filter,
 
     // (2) Inject the packet:
     memset(&addr_send, 0, sizeof(addr_send));
-    addr_send.Outbound          = TRUE;
-    addr_send.PseudoIPChecksum  = TRUE;
-    addr_send.PseudoTCPChecksum = TRUE;
-    addr_send.PseudoUDPChecksum = TRUE;
-    if (!WinDivertSend(inject_handle, (PVOID)packet, packet_len, &addr_send,
-            NULL))
+    addr_send.Outbound    = TRUE;
+    addr_send.IPChecksum  = FALSE;
+    addr_send.TCPChecksum = FALSE;
+    addr_send.UDPChecksum = FALSE;
+    if (!WinDivertSend(inject_handle, (PVOID)packet, packet_len, NULL,
+            &addr_send))
     {
         fprintf(stderr, "error: failed to inject test packet (err = %d)\n",
             GetLastError());
@@ -684,7 +1153,7 @@ static BOOL run_test(HANDLE inject_handle, const char *filter,
     if (buf_len[idx] != packet_len)
     {
         fprintf(stderr, "error: packet length mis-match, expected (%u), got "
-            "(%u)\n", packet_len, buf_len[idx]);
+            "(%u)\n", (unsigned)packet_len, buf_len[idx]);
         goto failed;
     }
     iphdr = (PWINDIVERT_IPHDR)buf[idx];
@@ -733,6 +1202,29 @@ static BOOL run_test(HANDLE inject_handle, const char *filter,
     }
 
     // (5) Clean-up:
+    if (!WinDivertShutdown(handle[0], WINDIVERT_SHUTDOWN_BOTH) ||
+        !WinDivertShutdown(handle[1], WINDIVERT_SHUTDOWN_BOTH))
+    {
+        fprintf(stderr, "error: failed to shutdown WinDivert handle (err = "
+            "%d)\n", GetLastError());
+        goto failed;
+    }
+    for (i = 0; i < 1000 && WinDivertRecv(handle[0], NULL, 0, NULL, NULL); i++)
+        ;
+    if (GetLastError() != ERROR_NO_DATA)
+    {
+        fprintf(stderr, "error: failed to recv NO_DATA from shutdown "
+            "WinDivert handle (err = %d)\n", GetLastError());
+        goto failed;
+    }
+    for (i = 0; i < 1000 && WinDivertRecv(handle[1], NULL, 0, NULL, NULL); i++)
+        ;
+    if (GetLastError() != ERROR_NO_DATA)
+    {
+        fprintf(stderr, "error: failed to recv NO_DATA from shutdown "
+            "WinDivert handle (err = %d)\n", GetLastError());
+        goto failed;
+    }
     if (!WinDivertClose(handle[0]) || !WinDivertClose(handle[1]))
     {
         fprintf(stderr, "error: failed to close WinDivert handle (err = %d)\n",
@@ -764,12 +1256,13 @@ failed:
  */
 static DWORD monitor_worker(LPVOID arg)
 {
-    char filter[100], packet[4096], object_1[4096], *object_2;
+    char filter[100], packet[4096], object_1[4096], *object_2, filter_2[8192];
     UINT packet_len;
     WINDIVERT_ADDRESS addr;
+    PWINDIVERT_IPHDR iphdr;
     UINT i;
 
-    snprintf(filter, sizeof(filter), "processId=%d and priority=777 and "
+    snprintf(filter, sizeof(filter), "processId=%d and priority=8888 and "
         "event=OPEN", GetCurrentProcessId());
     HANDLE handle = WinDivertOpen(filter, WINDIVERT_LAYER_REFLECT, 0,
         WINDIVERT_FLAG_SNIFF | WINDIVERT_FLAG_RECV_ONLY);
@@ -783,20 +1276,61 @@ static DWORD monitor_worker(LPVOID arg)
     size_t num_tests = sizeof(tests) / sizeof(struct test);
     for (i = 0; i < num_tests; i++)
     {
+        // (1) Read the reflected filter:
         WinDivertHelperCompileFilter(tests[i].filter, WINDIVERT_LAYER_NETWORK,
             object_1, sizeof(object_1), NULL, NULL);
-        if (!WinDivertRecv(handle, packet, sizeof(packet), &addr, &packet_len))
+        if (!WinDivertRecv(handle, packet, sizeof(packet), &packet_len, &addr))
         {
             fprintf(stderr, "error: failed to read OPEN event (err = %d)\n",
                 GetLastError());
             exit(EXIT_FAILURE);
         }
-        WinDivertHelperParsePacket(packet, packet_len, NULL, NULL, NULL, NULL,
-            NULL, NULL, (void **)&object_2, NULL);
+        object_2 = packet;
         if (strcmp(object_1, object_2) != 0)
         {
+            // Filter is not the same.
             fprintf(stderr, "error: filter object mismatch (%s vs %s)\n",
                 object_1, object_2);
+            exit(EXIT_FAILURE);
+        }
+
+        // (2) Test if formatted filter is equivalent:
+        if (!WinDivertHelperFormatFilter(object_1, WINDIVERT_LAYER_NETWORK,
+                filter_2, sizeof(filter_2)))
+        {
+            fprintf(stderr, "error: failed to format filter (err = %d)\n",
+                GetLastError());
+            exit(EXIT_FAILURE);
+        }
+        if (!WinDivertHelperCompileFilter(filter_2, WINDIVERT_LAYER_NETWORK,
+                object_1, sizeof(object_1), NULL, NULL))
+        {
+            fprintf(stderr, "error: failed to recompile filter (err = %d)\n",
+                GetLastError());
+            exit(EXIT_FAILURE);
+        }
+        if (strcmp(object_1, object_2) == 0)
+        {
+            // Recompiled filter is exactly the same; test has passed.
+            continue;
+        }
+        if (strstr(filter_2, "random") != NULL)
+        {
+            // Cannot verify random filters.
+            continue;
+        }
+        iphdr = (PWINDIVERT_IPHDR)tests[i].packet->packet;
+        memset(&addr, 0, sizeof(addr));
+        addr.Event    = WINDIVERT_EVENT_NETWORK_PACKET;
+        addr.Layer    = WINDIVERT_LAYER_NETWORK;
+        addr.Outbound = TRUE;
+        addr.IPv6     = (iphdr->Version == 4? FALSE: TRUE);
+        if (WinDivertHelperEvalFilter(object_1, tests[i].packet->packet,
+                tests[i].packet->packet_len, &addr) != tests[i].match)
+        {
+            fprintf(stderr, "error: failed to match recompiled filter "
+                "(test = %.3u, filter = \"%s\" formatted = \"%s\", "
+                "err = %d)\n", i, tests[i].filter, filter_2, GetLastError());
             exit(EXIT_FAILURE);
         }
     }

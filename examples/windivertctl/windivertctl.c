@@ -1,6 +1,6 @@
 /*
  * windivertctl.c
- * (C) 2018, all rights reserved,
+ * (C) 2019, all rights reserved,
  *
  * This file is part of WinDivert.
  *
@@ -51,142 +51,43 @@
 #define MAX_FILTER_LEN      30000
 
 /*
- * Process info.
- */
-typedef struct INFO
-{
-    UINT32 process_id;
-    UINT32 ref_count;
-    HANDLE process;
-    struct INFO *next;
-} INFO, *PINFO;
-
-static INFO *open = NULL;       // All open handles
-
-/*
  * Modes.
  */
 typedef enum
 {
     LIST,
     WATCH,
-    KILLALL
+    KILL,
+    UNINSTALL
 } MODE;
-
-/*
- * Add a new process.
- */
-static HANDLE add_process(UINT32 process_id)
-{
-    PINFO info = open;
-    HANDLE process;
-
-    while (info != NULL)
-    {
-        if (info->process_id == process_id)
-        {
-            info->ref_count++;
-            return info->process;
-        }
-        info = info->next;
-    }
-
-    process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE,
-        FALSE, process_id);
-    info = (INFO *)malloc(sizeof(INFO));
-    if (info == NULL)
-    {
-        fprintf(stderr, "error: failed to allocate memory (%d)\n",
-            GetLastError());
-        exit(EXIT_FAILURE);
-    }
-    info->process_id = process_id;
-    info->process    = process;
-    info->ref_count  = 1;
-    info->next       = open;
-    open = info;
-    return process;
-}
-
-/*
- * Lookup a process.
- */
-static HANDLE lookup_process(UINT32 process_id)
-{
-    PINFO info = open;
-
-    while (info != NULL)
-    {
-        if (info->process_id == process_id)
-        {
-            return info->process;
-        }
-        info = info->next;
-    }
-}
-
-/*
- * Remove an old process.
- */
-static void remove_process(UINT32 process_id)
-{
-    PINFO info = open, prev = NULL;
-
-    while (info != NULL)
-    {
-        if (info->process_id == process_id)
-        {
-            info->ref_count--;
-            if (info->ref_count > 0)
-            {
-                return;
-            }
-            break;
-        }
-        prev = info;
-        info = info->next;
-    }
-
-    if (info->process != NULL)
-    {
-        CloseHandle(info->process);
-    }
-    if (prev != NULL)
-    {
-        prev->next = info->next;
-    }
-    else
-    {
-        open = info->next;
-    }
-    free(info);
-}
 
 /*
  * Entry.
  */
 int __cdecl main(int argc, char **argv)
 {
-    HANDLE handle, process, console;
+    HANDLE handle, process, console, mutex;
     INT16 priority = -333;      // Arbitrary.
     UINT packet_len;
     static UINT8 packet[MAX_PACKET];
     static char path[MAX_PATH+1];
     static char filter_str[MAX_FILTER_LEN];
-    PVOID object;
     DWORD path_len;
     BOOL or;
     WINDIVERT_ADDRESS addr;
     ULONGLONG freq, start_count;
     LARGE_INTEGER li;
     MODE mode;
+    SC_HANDLE manager = NULL, service = NULL;
+    SERVICE_STATUS status;
     const char *filter = "true";
     const char *err_str = NULL;
 
     if (argc != 2 && argc != 3)
     {
 usage:
-        fprintf(stderr, "usage: %s (list|watch|killall) [filter]\n", argv[0]);
+        fprintf(stderr, "usage: %s (list|watch|kill) [filter]\n", argv[0]);
+        fprintf(stderr, "       %s uninstall\n", argv[0]);
         exit(EXIT_FAILURE);
     }
     if (strcmp(argv[1], "list") == 0)
@@ -197,9 +98,17 @@ usage:
     {
         mode = WATCH;
     }
-    else if (strcmp(argv[1], "killall") == 0)
+    else if (strcmp(argv[1], "kill") == 0)
     {
-        mode = KILLALL;
+        mode = KILL;
+    }
+    else if (strcmp(argv[1], "uninstall") == 0)
+    {
+        if (argc != 2)
+        {
+            goto usage;
+        }
+        mode = UNINSTALL;
     }
     else
     {
@@ -244,18 +153,29 @@ usage:
             GetLastError());
         return EXIT_FAILURE;
     }
+    if (!WinDivertSetParam(handle, WINDIVERT_PARAM_QUEUE_LENGTH,
+            WINDIVERT_PARAM_QUEUE_LENGTH_MAX) ||
+        !WinDivertSetParam(handle, WINDIVERT_PARAM_QUEUE_SIZE,
+            WINDIVERT_PARAM_QUEUE_SIZE_MAX) ||
+        !WinDivertSetParam(handle, WINDIVERT_PARAM_QUEUE_TIME,
+            WINDIVERT_PARAM_QUEUE_TIME_MAX))
+    {
+        fprintf(stderr, "error: failed to set WinDivert handle params (%d)\n",
+            GetLastError());
+        return EXIT_FAILURE;
+    }
 
     // Main loop:
     console = GetStdHandle(STD_OUTPUT_HANDLE);
     while (TRUE)
     {
-        if (!WinDivertRecv(handle, packet, sizeof(packet), &addr, &packet_len))
+        if (!WinDivertRecv(handle, packet, sizeof(packet), &packet_len, &addr))
         {
             if (mode != WATCH && GetLastError() == ERROR_NO_DATA)
             {
                 break;
             }
-            fprintf(stderr, "failed to event (%d)\n", GetLastError());
+            fprintf(stderr, "failed to receive event (%d)\n", GetLastError());
             continue;
         }
 
@@ -263,12 +183,10 @@ usage:
         {
             case WINDIVERT_EVENT_REFLECT_OPEN:
                 // Open handle:
-                process = add_process(addr.Reflect.ProcessId);
-                if (mode == KILLALL)
+                if (mode == KILL || mode == UNINSTALL)
                 {
                     SetConsoleTextAttribute(console, FOREGROUND_RED);
                     fputs("KILL", stdout);
-                    TerminateProcess(process, 0);
                 }
                 else
                 {
@@ -283,7 +201,6 @@ usage:
                 {
                     continue;
                 }
-                process = lookup_process(addr.Reflect.ProcessId);
                 SetConsoleTextAttribute(console, FOREGROUND_RED);
                 fputs("CLOSE", stdout);
                 break;
@@ -292,6 +209,9 @@ usage:
                 fputs("???", stdout);
                 break;
         }
+        process = OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE,
+            FALSE, addr.Reflect.ProcessId);
         SetConsoleTextAttribute(console,
             FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
         fputs(" time=", stdout);
@@ -310,6 +230,11 @@ usage:
         if (process != NULL)
         {
             path_len = GetProcessImageFileName(process, path, sizeof(path));
+            if (mode == KILL || mode == UNINSTALL)
+            {
+                TerminateProcess(process, 0);
+            }
+            CloseHandle(process);
         }
         SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_GREEN);
         printf("%s", (path_len != 0? path: "???"));
@@ -369,11 +294,6 @@ usage:
                 printf("%sSEND_ONLY", (or? "|": ""));
                 or = TRUE;
             }
-            if ((addr.Reflect.Flags & WINDIVERT_FLAG_RECV_PARTIAL) != 0)
-            {
-                printf("%sRECV_PARTIAL", (or? "|": ""));
-                or = TRUE;
-            }
             if ((addr.Reflect.Flags & WINDIVERT_FLAG_NO_INSTALL) != 0)
             {
                 printf("%sNO_INSTALL", (or? "|": ""));
@@ -389,21 +309,18 @@ usage:
             FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
         fputs(" filter=", stdout);
         SetConsoleTextAttribute(console, FOREGROUND_RED | FOREGROUND_GREEN);
-        WinDivertHelperParsePacket(packet, packet_len, NULL, NULL, NULL, NULL,
-            NULL, NULL, &object, NULL);
-        if (WinDivertHelperFormatFilter((char *)object, addr.Reflect.Layer,
+        if (WinDivertHelperFormatFilter((char *)packet, addr.Reflect.Layer,
             filter_str, sizeof(filter_str)))
         {
             printf("\"%s\"", filter_str);
         }
+        else
+        {
+            printf("\"%s\"", (char *)packet);
+        }
         SetConsoleTextAttribute(console,
             FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
         putchar('\n');
-
-        if (addr.Event == WINDIVERT_EVENT_REFLECT_CLOSE)
-        {
-            remove_process(addr.Reflect.ProcessId);
-        }
     }
 
     if (!WinDivertClose(handle))
@@ -411,6 +328,63 @@ usage:
         fprintf(stderr, "error: failed to close WinDivert handle (%d)\n",
             GetLastError());
         return EXIT_FAILURE;
+    }
+
+    if (mode == UNINSTALL)
+    {
+        // Stop & delete the WinDivert service:
+        mutex = CreateMutex(NULL, FALSE, "WinDivertDriverInstallMutex");
+        if (mutex == NULL)
+        {
+            fprintf(stderr, "error: failed to create WinDivert driver "
+                "install mutex (%d)\n", GetLastError());
+            return EXIT_FAILURE;
+        }
+        switch (WaitForSingleObject(mutex, INFINITE))
+        {
+            case WAIT_OBJECT_0: case WAIT_ABANDONED:
+                break;
+            default:
+                fprintf(stderr, "error: failed to acquire WinDivert driver "
+                    "install mutex (%d)\n", GetLastError());
+                return EXIT_FAILURE;
+        }
+        manager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+        if (manager == NULL)
+        {
+            fprintf(stderr, "error: failed to open service manager (%d)\n",
+                GetLastError());
+            return EXIT_FAILURE;
+        }
+        service = OpenService(manager, "WinDivert", SERVICE_ALL_ACCESS);
+        if (service == NULL)
+        {
+            fprintf(stderr, "error: failed to open WinDivert service (%d)\n",
+                GetLastError());
+            return EXIT_FAILURE;
+        }
+        if (!ControlService(service, SERVICE_CONTROL_STOP, &status))
+        {
+            fprintf(stderr, "error: failed to stop WinDivert service (%d)\n",
+                GetLastError());
+            return EXIT_FAILURE;
+        }
+        if (status.dwCurrentState != SERVICE_STOPPED)
+        {
+            fprintf(stderr, "error: failed to stop WinDivert service");
+            return EXIT_FAILURE;
+        }
+        CloseServiceHandle(service);
+        CloseServiceHandle(manager);
+
+        SetConsoleTextAttribute(console, FOREGROUND_GREEN);
+        fputs("UNINSTALL", stdout);
+        SetConsoleTextAttribute(console,
+            FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+        puts(" WinDivert");
+
+        ReleaseMutex(mutex);
+        CloseHandle(mutex);
     }
 
     return 0;

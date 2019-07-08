@@ -1,6 +1,5 @@
 LIBRARY WinDivert
 EXPORTS
-    WinDivertDllEntry
     WinDivertOpen
     WinDivertRecv
     WinDivertRecvEx
@@ -11,6 +10,7 @@ EXPORTS
     WinDivertSetParam
     WinDivertGetParam
     WinDivertHelperCalcChecksums
+    WinDivertHelperDecrementTTL
     WinDivertHelperHashPacket
     WinDivertHelperParsePacket
     WinDivertHelperParseIPv4Address
@@ -26,5 +26,7 @@ EXPORTS
     WinDivertHelperHtonl
     WinDivertHelperNtohll
     WinDivertHelperHtonll
+    WinDivertHelperNtohIPv6Address
+    WinDivertHelperHtonIPv6Address
     WinDivertHelperNtohIpv6Address
     WinDivertHelperHtonIpv6Address

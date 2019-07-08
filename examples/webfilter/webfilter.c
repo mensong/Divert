@@ -1,6 +1,6 @@
 /*
  * webfilter.c
- * (C) 2018, all rights reserved,
+ * (C) 2019, all rights reserved,
  *
  * This file is part of WinDivert.
  *
@@ -53,8 +53,8 @@
 #define htons(x)            WinDivertHelperHtons(x)
 #define htonl(x)            WinDivertHelperHtonl(x)
 
-#define MAXBUF 0xFFFF
-#define MAXURL 4096
+#define MAXBUF              WINDIVERT_MTU_MAX
+#define MAXURL              4096
 
 /*
  * URL and blacklist representation.
@@ -197,19 +197,21 @@ int __cdecl main(int argc, char **argv)
     // Main loop:
     while (TRUE)
     {
-        if (!WinDivertRecv(handle, packet, sizeof(packet), &addr, &packet_len))
+        if (!WinDivertRecv(handle, packet, sizeof(packet), &packet_len, &addr))
         {
             fprintf(stderr, "warning: failed to read packet (%d)\n",
                 GetLastError());
             continue;
         }
 
-        if (!WinDivertHelperParsePacket(packet, packet_len, &ip_header, NULL,
-                NULL, NULL, &tcp_header, NULL, &payload, &payload_len) ||
+        WinDivertHelperParsePacket(packet, packet_len, &ip_header, NULL,
+            NULL, NULL, NULL, &tcp_header, NULL, &payload, &payload_len,
+            NULL, NULL);
+        if (ip_header == NULL || tcp_header == NULL || payload == NULL ||
             !BlackListPayloadMatch(blacklist, payload, (UINT16)payload_len))
         {
             // Packet does not match the blacklist; simply reinject it.
-            if (!WinDivertSend(handle, packet, packet_len, &addr, NULL))
+            if (!WinDivertSend(handle, packet, packet_len, NULL, &addr))
             {
                 fprintf(stderr, "warning: failed to reinject packet (%d)\n",
                     GetLastError());
@@ -229,7 +231,7 @@ int __cdecl main(int argc, char **argv)
         reset->tcp.SeqNum       = tcp_header->SeqNum;
         reset->tcp.AckNum       = tcp_header->AckNum;
         WinDivertHelperCalcChecksums((PVOID)reset, sizeof(PACKET), &addr, 0);
-        if (!WinDivertSend(handle, (PVOID)reset, sizeof(PACKET), &addr, NULL))
+        if (!WinDivertSend(handle, (PVOID)reset, sizeof(PACKET), NULL, &addr))
         {
             fprintf(stderr, "warning: failed to send reset packet (%d)\n",
                 GetLastError());
@@ -244,8 +246,8 @@ int __cdecl main(int argc, char **argv)
             htonl(ntohl(tcp_header->SeqNum) + payload_len);
         addr.Outbound = !addr.Outbound;     // Reverse direction.
         WinDivertHelperCalcChecksums((PVOID)blockpage, blockpage_len, &addr, 0);
-        if (!WinDivertSend(handle, (PVOID)blockpage, blockpage_len, &addr,
-                NULL))
+        if (!WinDivertSend(handle, (PVOID)blockpage, blockpage_len, NULL,
+                &addr))
         {
             fprintf(stderr, "warning: failed to send block page packet (%d)\n",
                 GetLastError());
@@ -262,7 +264,7 @@ int __cdecl main(int argc, char **argv)
         finish->tcp.AckNum       =
             htonl(ntohl(tcp_header->SeqNum) + payload_len);
         WinDivertHelperCalcChecksums((PVOID)finish, sizeof(PACKET), &addr, 0);
-        if (!WinDivertSend(handle, (PVOID)finish, sizeof(PACKET), &addr, NULL))
+        if (!WinDivertSend(handle, (PVOID)finish, sizeof(PACKET), NULL, &addr))
         {
             fprintf(stderr, "warning: failed to send finish packet (%d)\n",
                 GetLastError());

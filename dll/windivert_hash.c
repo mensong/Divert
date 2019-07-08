@@ -1,6 +1,6 @@
 /*
  * windivert_hash.c
- * (C) 2018, all rights reserved,
+ * (C) 2019, all rights reserved,
  *
  * This file is part of WinDivert.
  *
@@ -31,33 +31,33 @@
  * with this program; if not, write to the Free Software Foundation, Inc., 51
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- *  xxHash - Fast Hash algorithm
- *  Copyright (C) 2012-2016, Yann Collet
+ * xxHash - Fast Hash algorithm
+ * Copyright (C) 2012-2016, Yann Collet
  *
- *  BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
+ * BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
  *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are
- *  met:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
  *
- *  * Redistributions of source code must retain the above copyright
- *  notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above
- *  copyright notice, this list of conditions and the following disclaimer
- *  in the documentation and/or other materials provided with the
- *  distribution.
+ * * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ * * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
  *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
 /*
@@ -68,7 +68,7 @@
  *   only ever a single round.  As such, the algorithm has been specialized.
  */
 
-#define WINDIVERT_ROTL(x, r)    (((x) << (r)) | ((x) >> (64 - (r))))
+#define WINDIVERT_ROTL64(x, r)  (((x) << (r)) | ((x) >> (64 - (r))))
 
 static const UINT64 WINDIVERT_PRIME64_1 = 11400714785074694791ull;
 static const UINT64 WINDIVERT_PRIME64_2 = 14029467366897019727ull;
@@ -77,9 +77,9 @@ static const UINT64 WINDIVERT_PRIME64_4 = 9650029242287828579ull;
 
 static UINT64 WinDivertXXH64Round(UINT64 acc, UINT64 input)
 {
-    acc += input * WINDIVERT_PRIME64_2;
-    acc  = WINDIVERT_ROTL(acc, 31);
-    acc *= WINDIVERT_PRIME64_1;
+    acc += WINDIVERT_MUL64(input, WINDIVERT_PRIME64_2);
+    acc  = WINDIVERT_ROTL64(acc, 31);
+    acc  = WINDIVERT_MUL64(acc, WINDIVERT_PRIME64_1);
     return acc;
 }
 
@@ -87,16 +87,16 @@ static UINT64 WinDivertXXH64MergeRound(UINT64 acc, UINT64 val)
 {
     val  = WinDivertXXH64Round(0, val);
     acc ^= val;
-    acc  = acc * WINDIVERT_PRIME64_1 + WINDIVERT_PRIME64_4;
+    acc  = WINDIVERT_MUL64(acc, WINDIVERT_PRIME64_1) + WINDIVERT_PRIME64_4;
     return acc;
 }
 
 static UINT64 WinDivertXXH64Avalanche(UINT64 h64)
 {
     h64 ^= h64 >> 33;
-    h64 *= WINDIVERT_PRIME64_2;
+    h64  = WINDIVERT_MUL64(h64, WINDIVERT_PRIME64_2);
     h64 ^= h64 >> 29;
-    h64 *= WINDIVERT_PRIME64_3;
+    h64  = WINDIVERT_MUL64(h64, WINDIVERT_PRIME64_3);
     h64 ^= h64 >> 32;
     return h64;
 }
@@ -187,8 +187,8 @@ static UINT64 WinDivertHashPacket(UINT64 seed, PWINDIVERT_IPHDR ip_header,
     v2 = WinDivertXXH64Round(v[1], v2);
     v3 = WinDivertXXH64Round(v[2], v3);
     v4 = WinDivertXXH64Round(v[3], v4);
-    h64 = WINDIVERT_ROTL(v1, 1) + WINDIVERT_ROTL(v2, 7) +
-          WINDIVERT_ROTL(v3, 12) + WINDIVERT_ROTL(v4, 18);
+    h64 = WINDIVERT_ROTL64(v1, 1) + WINDIVERT_ROTL64(v2, 7) +
+          WINDIVERT_ROTL64(v3, 12) + WINDIVERT_ROTL64(v4, 18);
     h64 = WinDivertXXH64MergeRound(h64, v1);
     h64 = WinDivertXXH64MergeRound(h64, v2);
     h64 = WinDivertXXH64MergeRound(h64, v3);

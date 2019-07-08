@@ -1,6 +1,6 @@
 /*
  * windivert_device.h
- * (C) 2018, all rights reserved,
+ * (C) 2019, all rights reserved,
  *
  * This file is part of WinDivert.
  *
@@ -44,8 +44,11 @@
 #define WINDIVERT_KERNEL
 #include "windivert.h"
 
-#define WINDIVERT_VERSION                           2
+#define WINDIVERT_VERSION_MAJOR                     2
 #define WINDIVERT_VERSION_MINOR                     0
+
+#define WINDIVERT_MAGIC_DLL                         0x4C4C447669645724ull
+#define WINDIVERT_MAGIC_SYS                         0x5359537669645723ull
 
 #define WINDIVERT_STR2(s)                           #s
 #define WINDIVERT_STR(s)                            WINDIVERT_STR2(s)
@@ -53,11 +56,13 @@
 #define WINDIVERT_LSTR(s)                           WINDIVERT_LSTR2(s)
 
 #define WINDIVERT_VERSION_LSTR                                              \
-    WINDIVERT_LSTR(WINDIVERT_VERSION) L"."                                  \
+    WINDIVERT_LSTR(WINDIVERT_VERSION_MAJOR) L"."                            \
         WINDIVERT_LSTR(WINDIVERT_VERSION_MINOR)
 
 #define WINDIVERT_DEVICE_NAME                                               \
-    L"WinDivert" WINDIVERT_VERSION_LSTR
+    L"WinDivert"
+#define WINDIVERT_LAYER_NAME                                                \
+    WINDIVERT_DEVICE_NAME WINDIVERT_VERSION_LSTR
 
 #define WINDIVERT_FILTER_FIELD_ZERO                 0
 #define WINDIVERT_FILTER_FIELD_INBOUND              1
@@ -125,21 +130,25 @@
 #define WINDIVERT_FILTER_FIELD_LOCALPORT            63
 #define WINDIVERT_FILTER_FIELD_REMOTEPORT           64
 #define WINDIVERT_FILTER_FIELD_PROTOCOL             65
-#define WINDIVERT_FILTER_FIELD_LAYER                66
-#define WINDIVERT_FILTER_FIELD_PRIORITY             67
-#define WINDIVERT_FILTER_FIELD_EVENT                68
-#define WINDIVERT_FILTER_FIELD_PACKET               69
-#define WINDIVERT_FILTER_FIELD_PACKET16             70
-#define WINDIVERT_FILTER_FIELD_PACKET32             71
-#define WINDIVERT_FILTER_FIELD_TCP_PAYLOAD          72
-#define WINDIVERT_FILTER_FIELD_TCP_PAYLOAD16        73
-#define WINDIVERT_FILTER_FIELD_TCP_PAYLOAD32        74
-#define WINDIVERT_FILTER_FIELD_UDP_PAYLOAD          75
-#define WINDIVERT_FILTER_FIELD_UDP_PAYLOAD16        76
-#define WINDIVERT_FILTER_FIELD_UDP_PAYLOAD32        77
-#define WINDIVERT_FILTER_FIELD_RANDOM8              78
-#define WINDIVERT_FILTER_FIELD_RANDOM16             79
-#define WINDIVERT_FILTER_FIELD_RANDOM32             80
+#define WINDIVERT_FILTER_FIELD_ENDPOINTID           66
+#define WINDIVERT_FILTER_FIELD_PARENTENDPOINTID     67
+#define WINDIVERT_FILTER_FIELD_LAYER                68
+#define WINDIVERT_FILTER_FIELD_PRIORITY             69
+#define WINDIVERT_FILTER_FIELD_EVENT                70
+#define WINDIVERT_FILTER_FIELD_PACKET               71
+#define WINDIVERT_FILTER_FIELD_PACKET16             72
+#define WINDIVERT_FILTER_FIELD_PACKET32             73
+#define WINDIVERT_FILTER_FIELD_TCP_PAYLOAD          74
+#define WINDIVERT_FILTER_FIELD_TCP_PAYLOAD16        75
+#define WINDIVERT_FILTER_FIELD_TCP_PAYLOAD32        76
+#define WINDIVERT_FILTER_FIELD_UDP_PAYLOAD          77
+#define WINDIVERT_FILTER_FIELD_UDP_PAYLOAD16        78
+#define WINDIVERT_FILTER_FIELD_UDP_PAYLOAD32        79
+#define WINDIVERT_FILTER_FIELD_LENGTH               80
+#define WINDIVERT_FILTER_FIELD_TIMESTAMP            81
+#define WINDIVERT_FILTER_FIELD_RANDOM8              82
+#define WINDIVERT_FILTER_FIELD_RANDOM16             83
+#define WINDIVERT_FILTER_FIELD_RANDOM32             84
 #define WINDIVERT_FILTER_FIELD_MAX                  \
     WINDIVERT_FILTER_FIELD_RANDOM32
 
@@ -151,15 +160,14 @@
 #define WINDIVERT_FILTER_TEST_GEQ                   5
 #define WINDIVERT_FILTER_TEST_MAX                   WINDIVERT_FILTER_TEST_GEQ
 
-#define WINDIVERT_FILTER_MAXLEN                     (0xFF-2)
+#define WINDIVERT_FILTER_MAXLEN                     256
 
-#define WINDIVERT_FILTER_RESULT_ACCEPT              (WINDIVERT_FILTER_MAXLEN+1)
-#define WINDIVERT_FILTER_RESULT_REJECT              (WINDIVERT_FILTER_MAXLEN+2)
+#define WINDIVERT_FILTER_RESULT_ACCEPT              0x7FFE
+#define WINDIVERT_FILTER_RESULT_REJECT              0x7FFF
 
 /*
  * WinDivert layers.
  */
-#define WINDIVERT_LAYER_DEFAULT                     WINDIVERT_LAYER_NETWORK
 #define WINDIVERT_LAYER_MAX                         WINDIVERT_LAYER_REFLECT
 
 /*
@@ -173,8 +181,7 @@
  */
 #define WINDIVERT_FLAGS_ALL                                                 \
     (WINDIVERT_FLAG_SNIFF | WINDIVERT_FLAG_DROP | WINDIVERT_FLAG_RECV_ONLY |\
-        WINDIVERT_FLAG_SEND_ONLY | WINDIVERT_FLAG_RECV_PARTIAL |            \
-        WINDIVERT_FLAG_NO_INSTALL)
+        WINDIVERT_FLAG_SEND_ONLY | WINDIVERT_FLAG_NO_INSTALL)
 #define WINDIVERT_FLAGS_EXCLUDE(flags, flag1, flag2)                        \
     (((flags) & ((flag1) | (flag2))) != ((flag1) | (flag2)))
 #define WINDIVERT_FLAGS_VALID(flags)                                        \
@@ -182,76 +189,110 @@
      WINDIVERT_FLAGS_EXCLUDE(flags, WINDIVERT_FLAG_SNIFF,                   \
         WINDIVERT_FLAG_DROP) &&                                             \
      WINDIVERT_FLAGS_EXCLUDE(flags, WINDIVERT_FLAG_RECV_ONLY,               \
-        WINDIVERT_FLAG_SEND_ONLY) &&                                        \
-     WINDIVERT_FLAGS_EXCLUDE(flags, WINDIVERT_FLAG_RECV_PARTIAL,            \
         WINDIVERT_FLAG_SEND_ONLY))
 
 /*
  * WinDivert filter flags.
  */
-#define WINDIVERT_FILTER_FLAG_INBOUND               0x0000000000000001ull
-#define WINDIVERT_FILTER_FLAG_OUTBOUND              0x0000000000000002ull
-#define WINDIVERT_FILTER_FLAG_IP                    0x0000000000000004ull
-#define WINDIVERT_FILTER_FLAG_IPV6                  0x0000000000000008ull
-#define WINDIVERT_FILTER_FLAG_EVENT_FLOW_DELETED    0x0000000000000010ull
-#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_BIND     0x0000000000000020ull
-#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_CONNECT  0x0000000000000040ull
-#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_LISTEN   0x0000000000000080ull
-#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_ACCEPT   0x0000000000000100ull
+#define WINDIVERT_FILTER_FLAG_INBOUND               0x0000000000000010ull
+#define WINDIVERT_FILTER_FLAG_OUTBOUND              0x0000000000000020ull
+#define WINDIVERT_FILTER_FLAG_IP                    0x0000000000000040ull
+#define WINDIVERT_FILTER_FLAG_IPV6                  0x0000000000000080ull
+#define WINDIVERT_FILTER_FLAG_EVENT_FLOW_DELETED    0x0000000000000100ull
+#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_BIND     0x0000000000000200ull
+#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_CONNECT  0x0000000000000400ull
+#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_LISTEN   0x0000000000000800ull
+#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_ACCEPT   0x0000000000001000ull
+#define WINDIVERT_FILTER_FLAG_EVENT_SOCKET_CLOSE    0x0000000000002000ull
 
 #define WINDIVERT_FILTER_FLAGS_ALL                                          \
-    (WINDIVERT_FILTER_FLAG_INBOUND | WINDIVERT_FILTER_FLAG_OUTBOUND |       \
-        WINDIVERT_FILTER_FLAG_IP | WINDIVERT_FILTER_FLAG_IPV6 |             \
+    (WINDIVERT_FILTER_FLAG_INBOUND |                                        \
+        WINDIVERT_FILTER_FLAG_OUTBOUND |                                    \
+        WINDIVERT_FILTER_FLAG_IP |                                          \
+        WINDIVERT_FILTER_FLAG_IPV6 |                                        \
         WINDIVERT_FILTER_FLAG_EVENT_FLOW_DELETED |                          \
         WINDIVERT_FILTER_FLAG_EVENT_SOCKET_BIND |                           \
         WINDIVERT_FILTER_FLAG_EVENT_SOCKET_CONNECT |                        \
         WINDIVERT_FILTER_FLAG_EVENT_SOCKET_LISTEN |                         \
-        WINDIVERT_FILTER_FLAG_EVENT_SOCKET_ACCEPT)
+        WINDIVERT_FILTER_FLAG_EVENT_SOCKET_ACCEPT |                         \
+        WINDIVERT_FILTER_FLAG_EVENT_SOCKET_CLOSE)
 
 /*
  * WinDivert priorities.
  */
-#define WINDIVERT_PRIORITY_DEFAULT                  0
-#define WINDIVERT_PRIORITY_MAX                      30000
-#define WINDIVERT_PRIORITY_MIN                      -WINDIVERT_PRIORITY_MAX
+#define WINDIVERT_PRIORITY_MAX                      WINDIVERT_PRIORITY_HIGHEST
+#define WINDIVERT_PRIORITY_MIN                      WINDIVERT_PRIORITY_LOWEST
 
 /*
- * WinDivert parameters.
+ * WinDivert timestamps.
  */
-#define WINDIVERT_PARAM_QUEUE_LEN_DEFAULT           2048
-#define WINDIVERT_PARAM_QUEUE_LEN_MIN               16
-#define WINDIVERT_PARAM_QUEUE_LEN_MAX               16384
-#define WINDIVERT_PARAM_QUEUE_TIME_DEFAULT          1000        // 1s
-#define WINDIVERT_PARAM_QUEUE_TIME_MIN              20          // 20ms
-#define WINDIVERT_PARAM_QUEUE_TIME_MAX              8000        // 8s
-#define WINDIVERT_PARAM_QUEUE_SIZE_MIN              65535       // 64KB
-#define WINDIVERT_PARAM_QUEUE_SIZE_MAX              33554432    // 32MB
-#define WINDIVERT_PARAM_QUEUE_SIZE_DEFAULT          4194304     // 4MB
-
-/*
- * WinDivert batch limits.
- */
-#define WINDIVERT_BATCH_MAX                         0xFF
+#define WINDIVERT_TIMESTAMP_MAX                     0x7FFFFFFFFFFFFFFFull
 
 /*
  * WinDivert message definitions.
  */
 #pragma pack(push, 1)
-typedef struct
+typedef union
 {
-    UINT64 arg1;                    // argument #1
-    UINT64 arg2;                    // argument #2
+    struct
+    {
+        UINT64 addr;                // WINDIVERT_ADDRESS pointer.
+        UINT64 addr_len_ptr;        // sizeof(addr) pointer.
+    } recv;
+    struct
+    {
+        UINT64 addr;                // WINDIVERT_ADDRESS pointer.
+        UINT64 addr_len;            // sizeof(addr).
+    } send;
+    struct
+    {
+        UINT32 layer;               // Handle layer.
+        UINT32 priority;            // Handle priority.
+        UINT64 flags;               // Handle flags.
+    } initialize;
+    struct
+    {
+        UINT64 flags;               // Filter flags.
+    } startup;
+    struct
+    {
+        UINT32 how;                 // WINDIVERT_SHUTDOWN_*
+    } shutdown;
+    struct
+    {
+        UINT32 param;               // WINDIVERT_PARAM_*
+    } get_param;
+    struct
+    {
+        UINT64 val;                 // Value pointer.
+        UINT32 param;               // WINDIVERT_PARAM_*
+    } set_param;
 } WINDIVERT_IOCTL, *PWINDIVERT_IOCTL;
 
 /*
- * WinDivert IOCTL structures.
+ * WinDivert initialization structure.
  */
 typedef struct
 {
-    UINT8  field;                   // WINDIVERT_FILTER_FIELD_*
-    UINT8  test;                    // WINDIVERT_FILTER_TEST_*
-    UINT8  success;                 // Success continuation.
-    UINT8  failure;                 // Fail continuation.
+    UINT64 magic;                   // Magic number (in/out).
+    UINT32 major;                   // Driver major version (in/out).
+    UINT32 minor;                   // Driver minor version (in/out).
+    UINT32 bits;                    // 32 or 64 (in/out).
+    UINT32 reserved32[3];
+    UINT64 reserved64[4];
+} WINDIVERT_VERSION, *PWINDIVERT_VERSION;
+
+/*
+ * WinDivert filter structure.
+ */
+typedef struct
+{
+    UINT32 field:11;                // WINDIVERT_FILTER_FIELD_*
+    UINT32 test:5;                  // WINDIVERT_FILTER_TEST_*
+    UINT32 success:16;              // Success continuation.
+    UINT32 failure:16;              // Fail continuation.
+    UINT32 neg:1;                   // Argument negative?
+    UINT32 reserved:15;
     UINT32 arg[4];                  // Argument.
 } WINDIVERT_FILTER, *PWINDIVERT_FILTER;
 #pragma pack(pop)
@@ -259,30 +300,24 @@ typedef struct
 /*
  * IOCTL codes.
  */
-#define IOCTL_WINDIVERT_SHUTDOWN                                            \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x917, METHOD_IN_DIRECT, FILE_READ_DATA | \
+#define IOCTL_WINDIVERT_INITIALIZE                                          \
+    CTL_CODE(FILE_DEVICE_NETWORK, 0x921, METHOD_OUT_DIRECT, FILE_READ_DATA |\
+        FILE_WRITE_DATA)
+#define IOCTL_WINDIVERT_STARTUP                                             \
+    CTL_CODE(FILE_DEVICE_NETWORK, 0x922, METHOD_IN_DIRECT, FILE_READ_DATA | \
         FILE_WRITE_DATA)
 #define IOCTL_WINDIVERT_RECV                                                \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x918, METHOD_OUT_DIRECT, FILE_READ_DATA)
+    CTL_CODE(FILE_DEVICE_NETWORK, 0x923, METHOD_OUT_DIRECT, FILE_READ_DATA)
 #define IOCTL_WINDIVERT_SEND                                                \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x919, METHOD_IN_DIRECT, FILE_READ_DATA | \
-        FILE_WRITE_DATA)
-#define IOCTL_WINDIVERT_START_FILTER                                        \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x91A, METHOD_IN_DIRECT, FILE_READ_DATA | \
-        FILE_WRITE_DATA)
-#define IOCTL_WINDIVERT_SET_LAYER                                           \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x91B, METHOD_IN_DIRECT, FILE_READ_DATA | \
-        FILE_WRITE_DATA)
-#define IOCTL_WINDIVERT_SET_PRIORITY                                        \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x91C, METHOD_IN_DIRECT, FILE_READ_DATA | \
-        FILE_WRITE_DATA)
-#define IOCTL_WINDIVERT_SET_FLAGS                                           \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x91D, METHOD_IN_DIRECT, FILE_READ_DATA | \
+    CTL_CODE(FILE_DEVICE_NETWORK, 0x924, METHOD_IN_DIRECT, FILE_READ_DATA | \
         FILE_WRITE_DATA)
 #define IOCTL_WINDIVERT_SET_PARAM                                           \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x91E, METHOD_IN_DIRECT, FILE_READ_DATA | \
+    CTL_CODE(FILE_DEVICE_NETWORK, 0x925, METHOD_IN_DIRECT, FILE_READ_DATA | \
         FILE_WRITE_DATA)
 #define IOCTL_WINDIVERT_GET_PARAM                                           \
-    CTL_CODE(FILE_DEVICE_NETWORK, 0x91F, METHOD_OUT_DIRECT, FILE_READ_DATA)
+    CTL_CODE(FILE_DEVICE_NETWORK, 0x926, METHOD_OUT_DIRECT, FILE_READ_DATA)
+#define IOCTL_WINDIVERT_SHUTDOWN                                            \
+    CTL_CODE(FILE_DEVICE_NETWORK, 0x927, METHOD_IN_DIRECT, FILE_READ_DATA | \
+        FILE_WRITE_DATA)
 
 #endif      /* __WINDIVERT_DEVICE_H */
