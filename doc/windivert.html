@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>WinDivert 2.0 Documentation</title>
+    <title>WinDivert 2.2 Documentation</title>
     <meta charset="UTF-8"/>
 </head>
 <body>
-<h1>WinDivert 2.0: Windows Packet Divert</h1>
+<h1>WinDivert 2.2: Windows Packet Divert</h1>
 <h2>Table of Contents</h2>
 <ul>
 <li><a href="#introduction">1. Introduction</a></li>
@@ -1133,6 +1133,19 @@ This flags causes <code>WinDivertOpen()</code> to fail with
 is not already installed.
 This flag is useful for querying the WinDivert state using a
 <code>WINDIVERT_LAYER_REFLECT</code> handle.
+</td>
+</tr>
+<tr>
+<td>
+<code>WINDIVERT_FLAG_FRAGMENTS</code>
+</td>
+<td>
+If set, the handle will capture inbound IP fragments, but not inbound
+reassembled IP packets.
+Otherwise, if not set (the default), the handle will capture inbound
+reassembled IP packets, but not inbound IP fragments.
+This flag only affects inbound packets at the
+<code>WINDIVERT_LAYER_NETWORK</code> layer, else the flag is ignored.
 </td>
 </tr>
 </table>
@@ -2738,6 +2751,7 @@ The possible fields are:
 <tr><td><code>subIfIdx</code></td><td>&#10004;</td><td>&#10004;</td><td></td><td></td><td></td><td>Sub-interface index</td></tr>
 <tr><td><code>loopback</code></td><td>&#10004;</td><td></td><td>&#10004;</td><td>&#10004;</td><td></td><td>Is loopback packet?</td></tr>
 <tr><td><code>impostor</code></td><td>&#10004;</td><td>&#10004;</td><td></td><td></td><td></td><td>Is impostor packet?</td></tr>
+<tr><td><code>fragment</code></td><td>&#10004;</td><td>&#10004;</td><td></td><td></td><td></td><td>Is IP fragment packet?</td></tr>
 <tr><td><code>endpointId</code></td><td></td><td></td><td>&#10004;</td><td>&#10004;</td><td></td><td>Endpoint ID</td></tr>
 <tr><td><code>parentEndpointId</code></td><td></td><td></td><td>&#10004;</td><td>&#10004;</td><td></td><td>Parent endpoint ID</td></tr>
 <tr><td><code>processId</code></td><td></td><td></td><td>&#10004;</td><td>&#10004;</td><td>&#10004;</td><td>Process ID</td></tr>

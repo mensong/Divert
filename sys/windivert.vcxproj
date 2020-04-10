@@ -46,10 +46,19 @@
   </ProjectConfiguration>
  </ItemGroup>
  <ItemGroup>
+  <MessageCompile Include="windivert_log.mc">
+   <RCFilePath>.</RCFilePath>
+   <HeaderFilePath>.</HeaderFilePath>
+  </MessageCompile>
+ </ItemGroup>
+ <ItemGroup>
+  <ResourceCompile Include="windivert.rc" />
+ </ItemGroup>
+ <ItemGroup>
   <ClCompile Include="windivert.c">
    <TreatWarningAsError>false</TreatWarningAsError>
    <Optimization>MaxSpeed</Optimization>
-   <AdditionalIncludeDirectories>..\include;..\dll</AdditionalIncludeDirectories>
+   <AdditionalIncludeDirectories>..\include;..\dll;.</AdditionalIncludeDirectories>
   </ClCompile>
  </ItemGroup>
  <PropertyGroup Label="Globals">

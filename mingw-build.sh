@@ -33,7 +33,7 @@
 # Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # Script for MinGW/Linux cross compilation.
-# NOTE: run wddk-build.bat before this script.
+# NOTE: run msvc-build.bat before this script.
 
 set -e
 
@@ -41,7 +41,7 @@ ENVS="i686-w64-mingw32 x86_64-w64-mingw32"
 
 if [ "$1" = "debug" ]
 then
-    MSVCRT=-lmsvcrt
+    EXTRA_OPTS="-lmsvcrt -include stdio.h"
 fi 
 
 for ENV in $ENVS
@@ -57,16 +57,16 @@ do
         MANGLE=
     fi
     HAVE_SYS=yes
-    if [ ! -d install/WDDK/$CPU ]
+    if [ ! -d install/MSVC/$CPU ]
     then
-        echo "WARNING: missing WDDK build; run wddk-build.bat first"
+        echo "WARNING: missing MSVC build; run msvc-build.bat first"
         HAVE_SYS=no
     fi
     echo "BUILD MINGW-$CPU"
     CC="$ENV-gcc"
     COPTS="-fno-ident -shared -Wall -Wno-pointer-to-int-cast -Os -Iinclude/ 
         -Wl,--enable-stdcall-fixup -Wl,--entry=${MANGLE}WinDivertDllEntry"
-    CLIBS="-lkernel32 -ladvapi32 $MSVCRT"
+    CLIBS="-lkernel32 -ladvapi32 $EXTRA_OPTS"
     STRIP="$ENV-strip"
     DLLTOOL="$ENV-dlltool"
     if [ -x "`which $CC`" ]
@@ -121,7 +121,7 @@ do
         if [ $HAVE_SYS = yes ]
         then
             echo "\tcopy install/MINGW/$CPU/WinDivert$BITS.sys..."
-            cp install/WDDK/$CPU/WinDivert$BITS.sys install/MINGW/$CPU
+            cp install/MSVC/$CPU/WinDivert$BITS.sys install/MINGW/$CPU
         fi
     else
         echo "WARNING: $CC not found"
