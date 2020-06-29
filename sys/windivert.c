@@ -333,6 +333,7 @@ extern VOID windivert_worker(IN WDFWORKITEM item);
 static void windivert_read_service(context_t context);
 extern VOID windivert_create(IN WDFDEVICE device, IN WDFREQUEST request,
     IN WDFFILEOBJECT object);
+static NTSTATUS windivert_install_provider();
 static NTSTATUS windivert_install_sublayer(layer_t layer);
 static NTSTATUS windivert_install_callouts(context_t context, UINT8 layer,
     UINT64 flags);
@@ -498,6 +499,15 @@ static void windivert_reflect_established_notify(context_t context,
 extern void windivert_reflect_worker(IN WDFWORKITEM item);
 static void windivert_log_event(PEPROCESS process, PDRIVER_OBJECT driver,
     const wchar_t *msg_str);
+
+/*
+ * WinDivert provider GUIDs
+ */
+DEFINE_GUID(WINDIVERT_PROVIDER_GUID,
+    0x450EC398, 0x1EAF, 0x49F5,
+    0x85, 0xE0, 0x22, 0x8F, 0x0D, 0x29, 0x39, 0x21);
+#define WINDIVERT_PROVIDER_NAME WINDIVERT_DEVICE_NAME
+#define WINDIVERT_PROVIDER_DESC WINDIVERT_DEVICE_NAME L" provider"
 
 /*
  * WinDivert sublayer GUIDs
@@ -1158,6 +1168,12 @@ extern NTSTATUS DriverEntry(IN PDRIVER_OBJECT driver_obj,
         DEBUG_ERROR("failed to begin WFP transaction", status);
         goto driver_entry_exit;
     }
+    status = windivert_install_provider();
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_ERROR("failed to install provider", status);
+        goto driver_entry_exit;
+    }
     status = windivert_install_sublayer(WINDIVERT_LAYER_INBOUND_NETWORK_IPV4);
     if (!NT_SUCCESS(status))
     {
@@ -1386,6 +1402,10 @@ static void windivert_driver_unload(void)
             WINDIVERT_LAYER_AUTH_RECV_ACCEPT_IPV4->sublayer_guid);
         FwpmSubLayerDeleteByKey0(engine_handle,
             WINDIVERT_LAYER_AUTH_RECV_ACCEPT_IPV6->sublayer_guid);
+
+        FwpmProviderDeleteByKey0(engine_handle,
+            &WINDIVERT_PROVIDER_GUID);
+
         status = FwpmTransactionCommit0(engine_handle);
         if (!NT_SUCCESS(status))
         {
@@ -1393,6 +1413,25 @@ static void windivert_driver_unload(void)
         }
         FwpmEngineClose0(engine_handle);
     }
+}
+
+/*
+ * Register provider.
+ */
+static NTSTATUS windivert_install_provider()
+{
+    FWPM_PROVIDER0 provider;
+    NTSTATUS status;
+
+    RtlZeroMemory(&provider, sizeof(provider));
+    provider.providerKey             = WINDIVERT_PROVIDER_GUID;
+    provider.displayData.name        = WINDIVERT_PROVIDER_NAME;
+    provider.displayData.description = WINDIVERT_PROVIDER_DESC;
+
+    // We don't care about the install result as this provider
+    // is only for passing HLK test.
+    FwpmProviderAdd0(engine_handle, &provider, NULL);
+    return STATUS_SUCCESS;
 }
 
 /*
